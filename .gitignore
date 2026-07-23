@@ -1,0 +1,7 @@
+bridge/node_modules/
+bridge/dist/
+plugin/**/node_modules/
+presets/
+backups/
+*.log
+.DS_Store
