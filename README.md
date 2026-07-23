@@ -15,6 +15,21 @@ Inspired by OpenAI's Codex Micro — and built to go further: one unified layout
 - **Three dials** — tool switcher (cycles the three profiles), lane selector (blink + session-name notification), and an autonomy dial (fast ⇔ deep reasoning), inspired by Codex Micro's effort dial.
 - **Skills page** — 8 shared prompt starters (Plan / Implement / Review / Fix / Test / Explain / Commit / Summary).
 
+## Status colors — see your agents' state at a glance
+
+Each lane key changes color automatically as the agent works, so you can tell what every session is doing without looking at the screen:
+
+| Color | Label | State | What you do |
+|-------|-------|-------|-------------|
+| ⚪ White | Idle | Waiting for instructions | Start a task (New / Skills) |
+| 🔵 Blue | Thinking | Agent is working | Wait (or Stop) |
+| 🟢 Green | Done | Turn finished | Check the Diff, continue |
+| 🟠 Orange | Input | **Waiting for your approval/input** | Accept / Reject from the deck |
+| 🔴 Red | Error | Something went wrong | Press the lane to inspect |
+| ⚫ Gray | Ready | Unused lane | Press to focus the app |
+
+The colors update live (~150 ms paint loop) — e.g. white → blue when the agent starts, blue → orange when it needs your approval, then green when the turn completes.
+
 ## Layout
 
 | Control | Action |
@@ -62,6 +77,8 @@ node scripts/wire-deck.mjs
 ## 日本語
 
 Ulanzi D200X を Claude Code / Codex / Cursor の**エージェント監視＋手元操作デッキ**にする macOS 用ツールです。3ツールで「同じ位置のキー＝同じ意味」の統一レイアウト、状態ガードによる誤爆防止、並列5セッションのライブ表示が特徴です。
+
+**状態が色でわかる**: エージェントの状態に合わせてキーの色が自動で切り替わります — 白=待機中（Idle）/ 青=作業中（Thinking）/ 緑=ターン完了（Done）/ **橙=承認・入力待ち（Input）**/ 赤=エラー（Error）/ 灰=空きレーン。作業開始で白→青、承認が必要になると青→橙、完了で緑、と画面を見なくても手元で進行がわかります。
 
 - **導入**: `./scripts/install.sh` → Ulanzi Studio を完全再起動 → アクセシビリティ／オートメーションを許可
 - **説明書**: [取扱説明書](docs/取扱説明書.md) / [クイックリファレンス](docs/クイックリファレンス.md)
