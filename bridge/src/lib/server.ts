@@ -14,6 +14,28 @@ import {
 
 const TOOLS = new Set<ToolId>(["claude", "codex", "cursor"]);
 const STATUS_TTL_MS = 300;
+/** A wedged collector must not wedge the whole HTTP server (seen after
+ * multi-day uptime across sleep/wake): cap each collect and fall back. */
+const COLLECT_TIMEOUT_MS = 4000;
+
+const lastGood = new Map<ToolId, StatusPayload>();
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), ms);
+    timer.unref?.();
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(null);
+      },
+    );
+  });
+}
 
 function sendJson(res: ServerResponse, code: number, body: unknown): void {
   const data = JSON.stringify(body);
@@ -37,7 +59,26 @@ export async function buildStatus(tool: ToolId): Promise<StatusPayload> {
     if (cached) return cached;
   }
 
-  const result = demo ? demoAgents(tool) : await collectTool(tool);
+  const result = demo
+    ? demoAgents(tool)
+    : await withTimeout(collectTool(tool), COLLECT_TIMEOUT_MS);
+  if (!result) {
+    const stale = lastGood.get(tool);
+    if (stale) {
+      return {
+        ...stale,
+        bridge: "degraded",
+        note: "collector timeout — showing last known state",
+      };
+    }
+    return {
+      tool,
+      bridge: "degraded",
+      agents: [],
+      updatedAt: Date.now(),
+      note: "collector timeout",
+    };
+  }
   const payload: StatusPayload = {
     tool,
     bridge: result.health,
@@ -45,7 +86,10 @@ export async function buildStatus(tool: ToolId): Promise<StatusPayload> {
     updatedAt: Date.now(),
     note: result.note,
   };
-  if (!demo) setCachedStatus(tool, payload);
+  if (!demo) {
+    setCachedStatus(tool, payload);
+    lastGood.set(tool, payload);
+  }
   return payload;
 }
 
