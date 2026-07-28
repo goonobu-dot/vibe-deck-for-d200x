@@ -773,6 +773,13 @@ function handleDialRun(action, param) {
 function handleDialPress(action, param) {
   const a = String(action || "");
   if (a.includes("dial.tool")) {
+    // Keypad "Tool" key (mode: "cycle") — Studio never routes Encoder events
+    // to plugins, so tool switching lives on a key that cycles the ring.
+    if (String(param?.mode || "") === "cycle") {
+      switchProfile("next");
+      log("dial.tool key: cycle next");
+      return true;
+    }
     const tool = toolFromContext(param);
     const app = tool ? verbs.appForTool(tool) : null;
     if (app) {

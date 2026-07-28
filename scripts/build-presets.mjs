@@ -13,10 +13,10 @@ import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import {
   PAGES,
-  DIALS,
+  ENCODERS,
   TOOLS,
   agentAction,
-  dialAction,
+  encoderAction,
   buildKeyAction,
   resolvePageKeys,
   stockPageAction,
@@ -63,8 +63,8 @@ function buildPage(base, pageId, pageIndex, tool, theme) {
   actions["1_3"] = stockPageAction("com.ulanzi.ulanzideck.page.next", "下一页");
 
   const encoders = {};
-  for (const key of Object.keys(DIALS)) {
-    encoders[key] = dialAction(key, tool);
+  for (const key of Object.keys(ENCODERS)) {
+    encoders[key] = encoderAction(key, tool);
   }
 
   writeJson(join(pageDir, "manifest.json"), {

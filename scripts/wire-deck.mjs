@@ -28,10 +28,10 @@ import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import {
   PAGES,
-  DIALS,
   PROFILE_RING,
   agentAction,
-  dialAction,
+  ENCODERS,
+  encoderAction,
   buildKeyAction,
   resolvePageKeys,
   stockPageAction,
@@ -153,13 +153,13 @@ function restoreStandardBottomControls(page, pageDir) {
   }
 }
 
-/** Wire the three dials (tool / lane / autonomy) on this page's encoder. */
+/** Wire the three dials (scroll / session / autonomy) as stock hotkeys. */
 function wireDials(page, tool) {
   const encoder = page.Controllers?.find((c) => c.Type === "Encoder");
   if (!encoder) return;
   encoder.Actions = encoder.Actions || {};
-  for (const key of Object.keys(DIALS)) {
-    encoder.Actions[key] = dialAction(key, tool);
+  for (const key of Object.keys(ENCODERS)) {
+    encoder.Actions[key] = encoderAction(key, tool);
   }
 }
 

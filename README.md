@@ -12,7 +12,7 @@ Inspired by OpenAI's Codex Micro — and built to go further: one unified layout
 - **5 agent lanes** — the top row shows up to five parallel sessions as live status colors (Idle / Thinking / Done / **Needs input** / Error). Claude Code lanes cover desktop *and* CLI sessions.
 - **State-guarded action keys** — Accept / Reject / Stop fire only when the agent state makes them meaningful. Pressing Accept while nothing awaits approval does nothing, by design.
 - **Auto-focus pipeline** — every action key activates the target app, verifies it is frontmost, then sends the keystroke. No manual focusing.
-- **Three dials** — tool switcher (cycles the three profiles), lane selector (blink + session-name notification), and an autonomy dial (fast ⇔ deep reasoning), inspired by Codex Micro's effort dial.
+- **Three dials + a Tool key** — scroll, session/chat switching, and an autonomy-menu dial (inspired by Codex Micro's effort dial); a dedicated Tool key cycles Claude Code → Codex → Cursor.
 - **Skills page** — 8 shared prompt starters (Plan / Implement / Review / Fix / Test / Explain / Commit / Summary).
 
 ## Status colors — see your agents' state at a glance
@@ -38,9 +38,9 @@ The colors update live (~150 ms paint loop) — e.g. white → blue when the age
 | Page 1 middle row | Accept / Reject / Stop / Diff / New |
 | Page 1 bottom row | Voice / Terminal / Mode |
 | Page 2 | 8 prompt starters (same on every tool) |
-| Page 3 | Focus / Refresh / Settings / Help / Model + per-tool zone |
+| Page 3 | Tool switch / Refresh / Settings / Help / Model + per-tool zone |
 | Bottom hardware buttons | Page prev / next |
-| Dials (L / M / R) | Tool switch / Lane select / Autonomy |
+| Dials (L / M / R) | Scroll / Session switch / Autonomy menu |
 
 ## Requirements
 

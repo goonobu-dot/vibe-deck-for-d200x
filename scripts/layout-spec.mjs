@@ -155,7 +155,10 @@ export const PAGES = Object.freeze([
   {
     name: "System",
     keys: {
-      "0_1": { type: "focus", icon: "focus", name: "Focus" },
+      // Lanes already focus on press — this slot cycles the tool instead
+      // (plugin actions DO work on Keypad; Studio never routes Encoder events
+      // to third-party plugins, so the tool switch lives on a key).
+      "0_1": { type: "toolCycle", icon: "tool", name: "Tool" },
       "1_1": { type: "refresh", icon: "refresh", name: "Refresh" },
       "2_1": { type: "hotkey", icon: "settings", name: "Settings", hotkey: "⌘  ," },
       "3_1": { type: "help", icon: "help", name: "Help" },
@@ -183,12 +186,62 @@ export const PAGES = Object.freeze([
   },
 ]);
 
-/** Dials — same on every page of every tool profile (Encoder actions). */
-export const DIALS = Object.freeze({
-  "2_3": { action: ACTIONS.dialTool, name: "Tool", icon: "tool" },
-  "3_3": { action: ACTIONS.dialLane, name: "Lane", icon: "lane" },
-  "4_3": { action: ACTIONS.dialAutonomy, name: "Autonomy", icon: "autonomy" },
+/**
+ * Dials — wired as STOCK hotkey actions with knob_* params.
+ * Verified on-device: Ulanzi Studio never delivers Encoder events to
+ * third-party plugin actions (no add/rotate/press ever arrives), while the
+ * stock system.hotkey knob wiring is proven to work. Per-tool hotkeys keep
+ * one meaning per dial: Scroll / Session / Autonomy.
+ */
+export const ENCODERS = Object.freeze({
+  "2_3": {
+    name: "Scroll",
+    perTool: {
+      claude: { rotL: "下スクロール", rotR: "上スクロール" },
+      codex: { rotL: "下スクロール", rotR: "上スクロール" },
+      cursor: { rotL: "下スクロール", rotR: "上スクロール" },
+    },
+  },
+  "3_3": {
+    name: "Session",
+    perTool: {
+      claude: { rotL: "⌃  ⇧  Tab", rotR: "⌃  Tab" },
+      codex: { rotL: "⌘  [", rotR: "⌘  ]", press: "⌘  G" },
+      cursor: { rotL: "⌘  [", rotR: "⌘  ]" },
+    },
+  },
+  "4_3": {
+    name: "Autonomy",
+    perTool: {
+      claude: { rotL: "⇧  ⌘  E", rotR: "⇧  ⌘  E", press: "⇧  ⌘  M" },
+      codex: { rotL: "⇧  ⌘  P", rotR: "⇧  ⌘  P", press: "⇧  ⌘  P" },
+      cursor: { rotL: "⌘  /", rotR: "⌘  /", press: "⌘  ." },
+    },
+  },
 });
+
+export function encoderAction(key, tool) {
+  const enc = ENCODERS[key];
+  const t = enc?.perTool?.[tool];
+  if (!t) throw new Error(`encoderAction: no spec for "${key}" / "${tool}"`);
+  return {
+    Action: "com.ulanzi.ulanzideck.system.hotkey",
+    ActionID: randomUUID(),
+    ActionParam: {
+      Action: "com.ulanzi.ulanzideck.system.hotkey",
+      knob_hold_left: {},
+      knob_hold_right: {},
+      knob_press: t.press ? { Hotkey: t.press } : {},
+      knob_rotate_left: t.rotL ? { Hotkey: t.rotL } : {},
+      knob_rotate_right: t.rotR ? { Hotkey: t.rotR } : {},
+    },
+    LinkedTitle: false,
+    Name: enc.name,
+    Plugin: { Name: "系统", UUID: "com.ulanzi.deck.system", Version: "1.0" },
+    State: 0,
+    ViewParam: viewNoTitle(),
+  };
+}
 
 /** All icon ids the layout needs (used to sanity-check the theme dirs). */
 export function requiredIconIds() {
@@ -203,7 +256,6 @@ export function requiredIconIds() {
       }
     }
   }
-  for (const dial of Object.values(DIALS)) ids.add(dial.icon);
   return [...ids].sort();
 }
 
@@ -241,11 +293,6 @@ export function agentAction(slot, tool) {
   return vibePluginAction(ACTIONS.agent, `Agent ${slot}`, { slot, tool });
 }
 
-export function dialAction(key, tool) {
-  const dial = DIALS[key];
-  if (!dial) throw new Error(`dialAction: no dial at "${key}"`);
-  return vibePluginAction(dial.action, dial.name, { tool });
-}
 
 export function hotkeyAction(hotkey, icon = {}, name = "hotkey") {
   return {
@@ -332,6 +379,14 @@ export function buildKeyAction(spec, tool, icon = {}) {
       return backgroundAction();
     case "model":
       return hotkeyAction(MODEL_HOTKEYS[tool], icon, spec.name);
+    case "toolCycle":
+      // Key press → plugin cycles the AI profile ring (mode: "cycle").
+      return vibePluginAction(
+        ACTIONS.dialTool,
+        spec.name,
+        { tool, mode: "cycle" },
+        icon,
+      );
     case "verb":
       return vibePluginAction(
         ACTIONS.verb,

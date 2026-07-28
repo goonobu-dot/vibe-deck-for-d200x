@@ -79,11 +79,15 @@ Claude Code / Codex / Cursor の3ツールで**操作端を完全共通化**す�
 
 ### ダイヤル（全ページ共通。Encoder Actions に配線）
 
+**改訂（実機検証による）**: Ulanzi Studio はサードパーティプラグインのアクションを Encoder に一切イベント配信しない（add/rotate/press とも届かない。実機確認済み）。よってダイヤルは **Studio 標準 system.hotkey の knob_* 配線**のみで構成し、ツール切替はキーに移設した。
+
 | ダイヤル | 回転 | 押し込み | 実装 |
 |----------|------|----------|------|
-| 左 2_3 | ツール切替（AI 3プロファイルのみ巡回） | 現ツールのアプリ前面化 | plugin `com.vibe.deck.status.dial.tool` |
-| 中 3_3 | レーン選択（選択レーンを点滅＋セッション名を macOS 通知表示） | 選択セッションのツールを前面化 | plugin `com.vibe.deck.status.dial.lane` |
-| 右 4_3 | 自律軸（左=速く/右=深く） | 現在モードUIを開く（=verb `mode`） | plugin `com.vibe.deck.status.dial.autonomy` |
+| 左 2_3 | スクロール（下/上） | — | 標準 hotkey knob_* |
+| 中 3_3 | セッション/チャット移動（claude ⌃⇧Tab/⌃Tab・cursor/codex ⌘[/⌘]） | codex のみ ⌘G | 標準 hotkey knob_* |
+| 右 4_3 | 自律軸メニュー（claude ⇧⌘E・codex ⇧⌘P・cursor ⌘/） | Mode（⇧⌘M / ⇧⌘P / ⌘.） | 標準 hotkey knob_* |
+
+ツール切替: Page 3 `0_1` の **Tool キー**＝plugin `dial.tool` に `mode:"cycle"`（Keypad ではプラグインアクションが動作するため）。押すたびリングを next 巡回（Studio 自動再起動方式）。旧 Focus キーはレーン押下と重複のため廃止。dial.lane / dial.autonomy のプラグイン実装は将来 Studio が Encoder 配信に対応した場合のために残置。
 
 ツール切替リングは `profile-ring.json` に3プロファイル名を書いて限定する
 （`Vibe · Claude Code` / `Codex_D200X` / `Vibe · Cursor`。wire-deck が書き出す）。
