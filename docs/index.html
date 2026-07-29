@@ -475,14 +475,14 @@
           <span class="ja">上段5キーは並列セッション最大5つの状態色。どのページでも常に表示され、監視が途切れません。押すとアプリが前面化します。</span></p>
         </div>
         <div class="feat" style="--fa:var(--codex)">
-          <h3><span class="en">Tool dial</span><span class="ja">ツールダイヤル</span></h3>
+          <h3><span class="en">Dials + Tool key</span><span class="ja">ダイヤルと Tool キー</span></h3>
           <p><span class="en">The left dial scrolls, the middle dial switches sessions/chats, and the right dial opens the autonomy menu (Effort / command menu / model). The Tool key on Page 3 cycles Claude ↔ Codex ↔ Cursor (Studio auto-restarts, ~9 s).</span>
           <span class="ja">左ダイヤルはスクロール、中ダイヤルはセッション／チャット移動、右ダイヤルは自律軸メニュー（Effort / コマンドメニュー / モデル）。ツール切替は Page 3 の Tool キー（Studio が自動再起動・約9秒）。</span></p>
         </div>
         <div class="feat" style="--fa:var(--st-done)">
           <h3><span class="en">Auto-focus, then send</span><span class="ja">自動前面化→送出</span></h3>
-          <p><span class="en">Every key automatically brings the target app to the front, verifies it is frontmost, then sends. You never need to press Focus first.</span>
-          <span class="ja">どのキーも「自動で対象アプリを前面化→前面確認→送出」。先に Focus を押す必要はありません。</span></p>
+          <p><span class="en">Every key automatically brings the target app to the front, verifies it is frontmost, then sends. You never need to bring the app to the front yourself.</span>
+          <span class="ja">どのキーも「自動で対象アプリを前面化→前面確認→送出」。先にアプリを前面化しておく必要はありません。</span></p>
         </div>
         <div class="feat" style="--fa:var(--cursor)">
           <h3><span class="en">Local bridge</span><span class="ja">ローカルブリッジ</span></h3>
@@ -574,7 +574,7 @@
           <div class="pageset" data-page="3" aria-hidden="true">
             <p class="rowlab"><span class="en">Middle row — system (shared)</span><span class="ja">中段 — システム（共通行）</span></p>
             <div class="krow">
-              <div class="key"><span class="kg">◎</span><span class="kl">Focus</span></div>
+              <div class="key"><span class="kg">⇄</span><span class="kl">Tool</span></div>
               <div class="key"><span class="kg">↻</span><span class="kl">Refresh</span></div>
               <div class="key"><span class="kg">⚙</span><span class="kl">Settings</span></div>
               <div class="key"><span class="kg">?</span><span class="kl">Help</span></div>
@@ -767,8 +767,8 @@ cd vibe-deck-for-d200x
           <span class="ja"><b>ガードが最も効くのが Codex:</b> <code>a</code> / <code>d</code> は承認オーバーレイ表示中だけ意味を持つキーで、それ以外では文字入力になってしまいます。デッキ側が「橙のときだけ送出」に制限しており、これが誤爆防止の要です。</span></div>
           <div class="gnote"><span class="en"><b>Accept = once.</b> To allow the whole session, choose <code>s</code> (session) on screen, or change the standing setting via Mode (/permissions).</span>
           <span class="ja"><b>Accept は「一度だけ許可」。</b>セッション全体を許可したい場合は画面上で <code>s</code>（session）を選ぶか、Mode（/permissions）で恒久設定を変更してください。</span></div>
-          <div class="gnote"><span class="en"><b>Slash keys need chat focus.</b> If <code>/plan</code> etc. gets sent as plain text, focus was outside the chat box — press Focus, then retry.</span>
-          <span class="ja"><b>スラッシュ系はチャット欄フォーカスが必要。</b><code>/plan</code> などが文章として送信されてしまったら、入力欄以外にフォーカスがあった状態です。Focus を押してから再実行してください。</span></div>
+          <div class="gnote"><span class="en"><b>Slash keys need chat focus.</b> If <code>/plan</code> etc. gets sent as plain text, focus was outside the chat box — press a lane key to bring ChatGPT to the front, click the chat box, then retry.</span>
+          <span class="ja"><b>スラッシュ系はチャット欄フォーカスが必要。</b><code>/plan</code> などが文章として送信されてしまったら、入力欄以外にフォーカスがあった状態です。上段レーンを押して ChatGPT を前面化し、入力欄をクリックしてから再実行してください。</span></div>
         </div>
       </div>
 

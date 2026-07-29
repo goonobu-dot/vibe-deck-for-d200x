@@ -64,7 +64,7 @@ Claude Code / Codex / Cursor の3ツールで**操作端を完全共通化**す�
 
 | キー | 機能 | 実装 |
 |------|------|------|
-| 0_1 | Focus | system.open → ツールの .app |
+| 0_1 | Tool | plugin `dial.tool` mode:"cycle"（押すたびツール切替） |
 | 1_1 | Refresh | `com.vibe.deck.status.refresh` |
 | 2_1 | Settings | hotkey ⌘, |
 | 3_1 | Help | ツール別 help（cursor ⇧⌘P / codex ⇧⌘/ / claude ⌘/） |
@@ -127,7 +127,7 @@ Claude Code / Codex / Cursor の3ツールで**操作端を完全共通化**す�
 - レイアウト定義を上記の単一スペックオブジェクトに書き換え（ツール別 CONTROL_COMMANDS / TOOL_EXTRAS の廃止。Page3 固有ゾーンのみツール別）
 - verb キーは `vibeAction("com.vibe.deck.status.verb", ...)` + ActionParam `{ verb, tool }` で配線
 - Encoder 2_3/3_3/4_3 に dial アクションを配線（restoreStandardBottomControls の「カスタムを剥がす」対象から新 dial アクションを除外）
-- 3_2 の Background(smallwindow) は廃止し →Skills / Summary / ツール固有キーに置換
+- ~~3_2 の Background(smallwindow) は廃止し →Skills / Summary / ツール固有キーに置換~~ **改訂: 3_2 はハードの小窓バー（時計）と重なるため全ページ Background 予約に戻した（上のレイアウト表が正）**
 - profile-ring.json を3プロファイル名で書き出す
 - アイコン: 新規 id（plan / refactor / mode / skills / lane 系）を generate-tool-themes.py に追加して3テーマ分生成。既存 id は流用
 
@@ -142,6 +142,6 @@ Claude Code / Codex / Cursor の3ツールで**操作端を完全共通化**す�
 
 - 下段物理ボタン(0_3/1_3)は Studio 標準 page nav を維持（変更しない）
 - Codex の verb は ChatGPT.app（デスクトップ）前提
-- 中ダイヤルの「レーン選択」はMVP: 点滅＋通知表示＋押しでアプリ前面化（セッション単位の切替は将来課題）
+- ~~中ダイヤルの「レーン選択」はMVP: 点滅＋通知表示＋押しでアプリ前面化~~ **改訂: Studio が Encoder→プラグイン配信を持たないため未提供。中ダイヤルは標準ホットキーのセッション/チャット移動（「ダイヤル」節が正）**
 - Claude の Voice（⇪）は環境依存で不安定（既知）。配置は維持
 - docs/（取扱説明書・クイックリファレンス等）は実装確定後にリーダーが改訂
