@@ -1,0 +1,17 @@
+{
+  "Device": {
+    "Model": "D200X",
+    "UUID": ""
+  },
+  "Icon": "Vibe_claude_badge.png",
+  "Name": "Vibe · Claude Code",
+  "Version": "2.0",
+  "Pages": {
+    "Current": "503cb979-ae46-4254-928f-081fad498733",
+    "Pages": [
+      "503cb979-ae46-4254-928f-081fad498733",
+      "2e5347ea-b6b0-4a8d-968a-3226730bad96",
+      "c5bc80ad-132d-4980-8ec5-f14d0055503d"
+    ]
+  }
+}

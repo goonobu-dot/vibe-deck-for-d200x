@@ -1,0 +1,17 @@
+{
+  "Device": {
+    "Model": "D200X",
+    "UUID": ""
+  },
+  "Icon": "Vibe_cursor_badge.png",
+  "Name": "Vibe · Cursor",
+  "Version": "2.0",
+  "Pages": {
+    "Current": "2a64be6b-ef8f-437d-9a79-4f37e8258d00",
+    "Pages": [
+      "2a64be6b-ef8f-437d-9a79-4f37e8258d00",
+      "5a8ae6ab-1d88-4f91-a8ab-df57b969593a",
+      "25645230-c4e5-4c8d-8b45-882f17630ab1"
+    ]
+  }
+}

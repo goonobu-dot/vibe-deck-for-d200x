@@ -1,0 +1,17 @@
+{
+  "Device": {
+    "Model": "D200X",
+    "UUID": ""
+  },
+  "Icon": "Vibe_codex_badge.png",
+  "Name": "Codex_D200X",
+  "Version": "2.0",
+  "Pages": {
+    "Current": "4ce145d6-1bf1-47d5-8d9a-5f5fc6e51e11",
+    "Pages": [
+      "4ce145d6-1bf1-47d5-8d9a-5f5fc6e51e11",
+      "c02f4e59-9b54-496e-8403-58ca6a85bffb",
+      "4c41a405-b94f-414f-b06c-d22ea256d532"
+    ]
+  }
+}
