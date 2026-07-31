@@ -138,6 +138,32 @@ Claude Code / Codex / Cursor の3ツールで**操作端を完全共通化**す�
 3. 3プロファイル×3ページすべてで「同一座標＝同一 verb」であることの照合スクリプト
 4. 実機適用（本番 HOME で generate-icons → generate-tool-themes → wire-deck）は QA 通過後
 
+## ビジュアル強化ロードマップ（2026-07-28 承認）
+
+目的: 「視覚で一瞬で分かる・情報量が増える・見てて楽しい」。
+
+### Phase A — 状態アニメーション（既存 setState 機構で確実に実現）
+
+- 追加フレーム（agent アクションの States に**末尾追記**。既存 index 0-5 は不変）:
+  - 6 = `agent-thinking-dim.png`（呼吸の暗フレーム）
+  - 7 = `agent-needs_input-off.png`（点滅の暗フレーム）
+  - 8 = `agent-done-pop.png`（完了ポップ=チェックが大きく弾むフレーム）
+  - 9 = `agent-blocked.png`（赤✗。ガードフィードバック実験用）
+- plugin.js paint(): 状態→フレームを時刻から算出（thinking=1↔6 周期1600ms / needs_input=3↔7 周期500ms / done遷移直後のみ8を600ms→2 / 他は従来）。lastKeyState はフレーム index を保持
+- 起動ウェーブ: boot 後最初のペイントで L1→L5 を 80ms ずらして順点灯
+- ガードフィードバック: verb ブロック時に afplay で警告音＋（実験）verb キーの blocked ステート点滅。ステート復元が不安定なら音のみに落とす
+- アイコンは generate-icons.py に追記生成。QA: テスト全パス＋実機で各アニメ確認
+
+### Phase B — 動的レーンカード（要プロトコル検証）
+
+- 検証: Ulanzi WS に動的画像送信（setImage/base64 等）が存在するか（SDK・公式プラグイン実装を調査→実機プローブ）
+- 可なら: レーンに セッション名/経過時間/承認内容（橙時は「Bash: git push」等）を Pillow でオンザフライ描画して表示
+- 不可なら: 代替案（1セッション2キー構成）を再提案
+
+### Phase C — Web ダッシュボード
+
+- bridge に `/dashboard`（Phase A と同じアニメ表現の大型ステータスボード。スマホ/2枚目モニタ用）
+
 ## 制約・置いた前提
 
 - 下段物理ボタン(0_3/1_3)は Studio 標準 page nav を維持（変更しない）

@@ -4,7 +4,7 @@
   "Description": "Codex Micro–style live agent status, profile ring, and page nav for D200X.",
   "Category": "Vibe Deck",
   "CategoryIcon": "Images/category.png",
-  "Version": "1.2.0",
+  "Version": "1.3.0",
   "UUID": "com.vibe.deck.status",
   "CodePath": "app/plugin.js",
   "Icon": "Images/plugin.png",
@@ -27,7 +27,11 @@
         { "Image": "Images/agent-done.png", "Name": "Done" },
         { "Image": "Images/agent-needs_input.png", "Name": "Needs Input" },
         { "Image": "Images/agent-error.png", "Name": "Error" },
-        { "Image": "Images/agent-empty.png", "Name": "Empty" }
+        { "Image": "Images/agent-empty.png", "Name": "Empty" },
+        { "Image": "Images/agent-thinking-dim.png", "Name": "Thinking Dim" },
+        { "Image": "Images/agent-needs_input-off.png", "Name": "Needs Input Off" },
+        { "Image": "Images/agent-done-pop.png", "Name": "Done Pop" },
+        { "Image": "Images/agent-blocked.png", "Name": "Blocked" }
       ]
     },
     {
@@ -100,7 +104,10 @@
       "UUID": "com.vibe.deck.status.verb",
       "Controllers": ["Keypad"],
       "Devices": ["D200X"],
-      "States": [{ "Image": "Images/agent-needs_input.png", "Name": "Verb" }]
+      "States": [
+        { "Image": "Images/agent-empty.png", "Name": "Verb" },
+        { "Image": "Images/agent-blocked.png", "Name": "Blocked" }
+      ]
     },
     {
       "Icon": "Images/nav-next.png",

@@ -8,6 +8,7 @@ const path = require("path");
 const { spawn, execFile } = require("child_process");
 const WebSocket = require("ws");
 const verbs = require("./verbs.js");
+const frames = require("./frames.js");
 
 const PLUGIN_UUID = "com.vibe.deck.status";
 const BRIDGE = process.env.VIBE_DECK_BRIDGE || "http://127.0.0.1:17823";
@@ -26,14 +27,8 @@ const RING_OVERRIDE = path.join(
 );
 const PAINT_MS = 150;
 
-const STATE_INDEX = {
-  idle: 0,
-  thinking: 1,
-  done: 2,
-  needs_input: 3,
-  error: 4,
-  empty: 5,
-};
+// Frame arithmetic lives in frames.js (single source of truth, unit-tested).
+const STATE_INDEX = frames.STATE_INDEX;
 
 const STATE_LABEL = {
   idle: "白",
@@ -401,10 +396,42 @@ function requestPage(direction) {
 const client = new UlanziClient(PLUGIN_UUID);
 /** @type {Map<string, any>} */
 const keys = new Map();
-/** @type {Map<string, number>} */
+/** Last painted frame index per agent key (差分送信の基準). @type {Map<string, number>} */
 const lastKeyState = new Map();
+/** Last logical bridge state per agent key ("thinking" 等). @type {Map<string, string>} */
+const lastLogicalState = new Map();
+/** Time (ms) each agent key transitioned INTO done — drives the pop frame. @type {Map<string, number>} */
+const doneAt = new Map();
+/** Registered verb keys (guard-blocked flash targets). @type {Map<string, any>} */
+const verbKeys = new Map();
 let paintInFlight = false;
 let needsEmptyFlash = true;
+
+function forgetAgentKey(id) {
+  keys.delete(id);
+  lastKeyState.delete(id);
+  lastLogicalState.delete(id);
+  doneAt.delete(id);
+}
+
+/** Record a verb key registration so guard feedback can flash the right tile. */
+function rememberVerbKey(actionid, msg, param) {
+  const key = msg.key || param.key;
+  // Same-coordinate re-registration (profile/page switch) replaces the entry.
+  for (const [id, meta] of verbKeys) {
+    if (id !== String(actionid) && String(meta.key) === String(key)) {
+      verbKeys.delete(id);
+    }
+  }
+  verbKeys.set(String(actionid), {
+    actionid,
+    key,
+    uuid: "com.vibe.deck.status.verb",
+    device: msg.device,
+    controller: msg.controller,
+  });
+  log("remember verb key", actionid, key, param.verb || param.Verb || "");
+}
 
 function remember(msg) {
   if (msg.cmd && msg.cmd !== "add") return;
@@ -415,6 +442,10 @@ function remember(msg) {
   const key = msg.key || param.key;
   const uuid = msg.uuid || PLUGIN_UUID;
   if (!actionid) return;
+  if (uuid === "com.vibe.deck.status.verb") {
+    rememberVerbKey(actionid, msg, param);
+    return;
+  }
   if (uuid !== "com.vibe.deck.status.agent") return;
   // Unified layout paints five lanes at once, so never wipe the whole set.
   // A profile/page switch re-registers a lane at the same physical key with a
@@ -425,8 +456,7 @@ function remember(msg) {
       String(meta.uuid || "").includes(".agent") &&
       String(meta.key) === String(key)
     ) {
-      keys.delete(id);
-      lastKeyState.delete(id);
+      forgetAgentKey(id);
     }
   }
   keys.set(String(actionid), {
@@ -454,6 +484,9 @@ function item(meta, state) {
   };
 }
 
+// Boot wave: after (re)registration the lanes light up slot by slot.
+const BOOT_WAVE_STEP_MS = 80;
+
 async function paint() {
   if (!keys.size || paintInFlight) return;
   paintInFlight = true;
@@ -470,6 +503,7 @@ async function paint() {
         continue;
       }
       const agents = status.agents || [];
+      const now = Date.now();
       const changed = [];
       const labels = [];
       for (const meta of keys.values()) {
@@ -477,22 +511,42 @@ async function paint() {
         const agent = agents.find((a) => a.slot === meta.slot) || {
           state: "empty",
         };
-        const state = STATE_INDEX[agent.state] ?? STATE_INDEX.empty;
-        const prev = lastKeyState.get(meta.actionid);
-        labels.push(STATE_LABEL[agent.state] || "?");
-        if (prev !== state || needsEmptyFlash) {
-          changed.push({ meta, state });
-          lastKeyState.set(meta.actionid, state);
+        const logical =
+          typeof agent.state === "string" ? agent.state : "empty";
+        // Track the moment a lane ENTERS done — drives the 600ms pop frame.
+        const prevLogical = lastLogicalState.get(meta.actionid);
+        if (logical === "done" && prevLogical !== "done") {
+          doneAt.set(meta.actionid, now);
+        } else if (logical !== "done") {
+          doneAt.delete(meta.actionid);
+        }
+        lastLogicalState.set(meta.actionid, logical);
+
+        const frame = frames.frameFor(logical, now, doneAt.get(meta.actionid));
+        const prevFrame = lastKeyState.get(meta.actionid);
+        labels.push(STATE_LABEL[logical] || "?");
+        // Diff on the frame index: animated states re-send only when their
+        // frame flips; static states stay silent — no constant traffic.
+        if (prevFrame !== frame || needsEmptyFlash) {
+          changed.push({ meta, state: frame });
+          lastKeyState.set(meta.actionid, frame);
         }
       }
       if (!changed.length) continue;
 
       if (needsEmptyFlash) {
-        client.setState(
-          changed.map((t) => item(t.meta, STATE_INDEX.empty)),
-        );
-        await sleep(40);
+        // Boot wave: everything to empty, then light lanes slot by slot.
         needsEmptyFlash = false;
+        const ordered = [...changed].sort(
+          (a, b) => (a.meta.slot || 0) - (b.meta.slot || 0),
+        );
+        client.setState(ordered.map((t) => item(t.meta, STATE_INDEX.empty)));
+        for (const t of ordered) {
+          await sleep(BOOT_WAVE_STEP_MS);
+          client.setState([item(t.meta, t.state)]);
+        }
+        log("boot wave", tool, `${ordered.length}keys`, labels.join(""));
+        continue;
       }
       client.setState(changed.map((t) => item(t.meta, t.state)));
       log(
@@ -556,6 +610,41 @@ const FOCUS_SETTLE_MS = 250;
 const FOCUS_MAX_ATTEMPTS = 2; // bounded retry — never loop forever
 let verbInFlight = false;
 
+// --- Guard feedback (Phase A) ----------------------------------------------
+// Experimental: flash the pressed verb key to its "Blocked" state (index 1).
+// The profile wires verb keys with ViewParam icons whose interaction with
+// setState is unverified on-device — flip to false to fall back to sound only.
+const ENABLE_VERB_FLASH = true;
+const VERB_FLASH_MS = 400;
+const GUARD_SOUND = "/System/Library/Sounds/Basso.aiff";
+
+/** Fire-and-forget warning sound. Never throws, never blocks the verb path. */
+function playGuardSound() {
+  try {
+    const child = spawn("afplay", [GUARD_SOUND], {
+      stdio: "ignore",
+      detached: true,
+    });
+    child.on("error", (err) => log("guard sound spawn error", String(err)));
+    child.unref();
+  } catch (err) {
+    log("guard sound threw", String(err));
+  }
+}
+
+/** Flash the blocked frame on the verb key that was pressed, then restore. */
+async function flashVerbKey(actionid) {
+  if (!actionid) return;
+  const meta = verbKeys.get(String(actionid));
+  if (!meta) {
+    log("verb flash: key not registered, skip", actionid);
+    return;
+  }
+  client.setState([item(meta, 1)]); // States[1] = Blocked
+  await sleep(VERB_FLASH_MS);
+  client.setState([item(meta, 0)]); // States[0] = default
+}
+
 /** Infer the tool from ActionParam, falling back to the current profile name. */
 function toolFromContext(param) {
   const raw = String(param?.tool || param?.Tool || "").toLowerCase();
@@ -610,7 +699,7 @@ async function focusAndVerify(tool) {
  * Full verb pipeline: bridge status → guard → activate → settle →
  * frontmost verify → keystroke send. Logs every branch.
  */
-async function handleVerbAction(verbName, tool) {
+async function handleVerbAction(verbName, tool, actionid) {
   if (!verbs.isValidVerb(verbName)) {
     log("verb: unknown verb, ignoring", verbName);
     return;
@@ -631,6 +720,12 @@ async function handleVerbAction(verbName, tool) {
     const guard = verbs.evaluateVerbGuard(verbName, tool, agentStates);
     if (!guard.allowed) {
       log("verb: guard blocked", verbName, tool, guard.reason);
+      playGuardSound();
+      if (ENABLE_VERB_FLASH) {
+        await flashVerbKey(actionid).catch((err) =>
+          log("verb flash error", String(err)),
+        );
+      }
       return;
     }
     log("verb: guard ok", verbName, tool, guard.reason);
@@ -817,7 +912,8 @@ client.on("run", async (msg) => {
   const a = String(action);
   if (a.includes(".verb")) {
     const verbName = String(param.verb || param.Verb || "");
-    handleVerbAction(verbName, toolFromContext(param)).catch((e) =>
+    const actionid = msg.actionid || msg.ActionID || param.actionid;
+    handleVerbAction(verbName, toolFromContext(param), actionid).catch((e) =>
       log("verb run error", String(e)),
     );
     return;

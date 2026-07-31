@@ -63,6 +63,43 @@ THEMES = {
     },
 }
 
+# Phase A animation frames (manifest States index 6..9). Same render pipeline
+# as THEMES; "kind" values check-pop / blocked get dedicated glyphs below.
+ANIM_THEMES = {
+    # 6 — breathing dim frame for thinking (same orbit motif, heavily darkened)
+    "thinking-dim": {
+        "bg": (16, 44, 106),
+        "fg": (148, 163, 184),
+        "soft": (66, 92, 138),
+        "label": "Thinking",
+        "kind": "think",
+    },
+    # 7 — blink-off frame for needs_input (darkened orange)
+    "needs_input-off": {
+        "bg": (110, 71, 5),
+        "fg": (196, 178, 148),
+        "soft": (128, 104, 62),
+        "label": "Input",
+        "kind": "ask",
+    },
+    # 8 — done "pop" frame: same green, check scaled ~1.3x
+    "done-pop": {
+        "bg": (22, 163, 74),
+        "fg": (255, 255, 255),
+        "soft": (134, 239, 172),
+        "label": "Done",
+        "kind": "check-pop",
+    },
+    # 9 — guard-blocked feedback: red X
+    "blocked": {
+        "bg": (239, 68, 68),
+        "fg": (255, 255, 255),
+        "soft": (254, 202, 202),
+        "label": "Blocked",
+        "kind": "blocked",
+    },
+}
+
 OUTS = [
     ROOT / "assets" / "icons",
     ROOT / "plugin" / "com.vibe.deck.status.ulanziPlugin" / "Images",
@@ -119,6 +156,19 @@ def draw_glyph(draw: ImageDraw.ImageDraw, kind: str, fg, soft) -> None:
         draw.polygon([(cx, cy - 28), (cx + 30, cy + 22), (cx - 30, cy + 22)], fill=fg)
         draw.rectangle((cx - 4, cy - 10, cx + 4, cy + 6), fill=soft)
         draw.ellipse((cx - 4, cy + 10, cx + 4, cy + 18), fill=soft)
+    elif kind == "check-pop":
+        # done check scaled ~1.3x around its centroid — the "pop" frame
+        base = [(40, 58), (62, 78), (108, 34)]
+        pcx = sum(p[0] for p in base) / len(base)
+        pcy = sum(p[1] for p in base) / len(base)
+        pts = [
+            (pcx + (x - pcx) * 1.3, pcy + (y - pcy) * 1.3) for x, y in base
+        ]
+        draw.line(pts, fill=fg, width=13, joint="curve")
+    elif kind == "blocked":
+        # thick red-tile X (guard feedback)
+        draw.line((cx - 24, cy - 24, cx + 24, cy + 24), fill=fg, width=12)
+        draw.line((cx - 24, cy + 24, cx + 24, cy - 24), fill=fg, width=12)
     elif kind == "empty":
         draw.ellipse((cx - 24, cy - 24, cx + 24, cy + 24), outline=fg, width=4)
         draw.line((cx - 12, cy, cx + 12, cy), fill=fg, width=4)
@@ -182,6 +232,13 @@ def main() -> None:
         if name == "done":
             for d in OUTS[1:]:
                 img.save(d / "category.png")
+
+    for name, theme in ANIM_THEMES.items():
+        img = render(theme)
+        for d in OUTS:
+            path = d / f"agent-{name}.png"
+            img.save(path, format="PNG")
+            print("wrote", path)
 
     nav_specs = {
         "nav-prev": ((30, 41, 59), (226, 232, 240)),
