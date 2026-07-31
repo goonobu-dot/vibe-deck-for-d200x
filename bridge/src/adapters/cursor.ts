@@ -152,8 +152,13 @@ function inferState(lines: string[], ageSec: number): RawAgent["state"] {
   return "idle";
 }
 
-/** First user_query text = the session's own words; beats the transcript UUID. */
+/** Project folder name first (user preference); query words only when the
+ * project dir is an anonymous epoch id. */
 function titleFromTranscript(lines: string[], file: string): string {
+  const proj = file.split("/projects/")[1]?.split("/")[0] ?? "";
+  if (proj && !/^\d{13}$/.test(proj)) {
+    return proj.replace(/^Users-[^-]+-/, "").slice(0, 28) || "Cursor";
+  }
   for (const line of lines.slice(0, 3)) {
     try {
       const obj = JSON.parse(line) as Record<string, unknown>;
@@ -170,13 +175,11 @@ function titleFromTranscript(lines: string[], file: string): string {
       // not JSON — keep looking
     }
   }
-  // Fallback: the project dir segment (an encoded path or an epoch id).
-  const proj = file.split("/projects/")[1]?.split("/")[0] ?? "";
   if (/^\d{13}$/.test(proj)) {
     const d = new Date(Number(proj));
     return `${d.getMonth() + 1}/${d.getDate()} session`;
   }
-  return proj.replace(/^Users-[^-]+-/, "").slice(0, 28) || "Cursor";
+  return "Cursor";
 }
 
 async function readCached(file: string, mtime: number): Promise<FileCache | null> {
