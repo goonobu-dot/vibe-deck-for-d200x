@@ -152,6 +152,33 @@ function inferState(lines: string[], ageSec: number): RawAgent["state"] {
   return "idle";
 }
 
+/** First user_query text = the session's own words; beats the transcript UUID. */
+function titleFromTranscript(lines: string[], file: string): string {
+  for (const line of lines.slice(0, 3)) {
+    try {
+      const obj = JSON.parse(line) as Record<string, unknown>;
+      if (obj.role !== "user") continue;
+      const msg = obj.message as Record<string, unknown> | undefined;
+      const content = Array.isArray(msg?.content) ? msg.content : [];
+      for (const c of content) {
+        const text = typeof c?.text === "string" ? c.text : "";
+        const q = text.match(/<user_query>\s*([\s\S]*?)\s*<\/user_query>/);
+        const words = (q ? q[1] : text).replace(/\s+/g, " ").trim();
+        if (words) return [...words].slice(0, 28).join("");
+      }
+    } catch {
+      // not JSON — keep looking
+    }
+  }
+  // Fallback: the project dir segment (an encoded path or an epoch id).
+  const proj = file.split("/projects/")[1]?.split("/")[0] ?? "";
+  if (/^\d{13}$/.test(proj)) {
+    const d = new Date(Number(proj));
+    return `${d.getMonth() + 1}/${d.getDate()} session`;
+  }
+  return proj.replace(/^Users-[^-]+-/, "").slice(0, 28) || "Cursor";
+}
+
 async function readCached(file: string, mtime: number): Promise<FileCache | null> {
   const hit = fileCache.get(file);
   if (hit && hit.mtime === mtime) return hit;
@@ -160,12 +187,11 @@ async function readCached(file: string, mtime: number): Promise<FileCache | null
     const lines = text.trim().split(/\n+/);
     const ageSec = (Date.now() - mtime) / 1000;
     const state = inferState(lines, ageSec);
-    const base = file.split("/").slice(-2).join("/");
     const entry: FileCache = {
       mtime,
       lines,
       state,
-      title: base.slice(0, 36),
+      title: titleFromTranscript(lines, file),
     };
     fileCache.set(file, entry);
     return entry;
