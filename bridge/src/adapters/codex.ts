@@ -170,7 +170,13 @@ async function parseSession(
 
   const lines = text.trim().split(/\n+/).slice(-TAIL_LINES);
   let state: Exclude<AgentState, "empty"> = "idle";
-  let title = basename(file).replace(/^rollout-/, "").slice(0, 36);
+  // Unnamed sessions fall back to the rollout timestamp id — compress
+  // "2026-07-31T10-19-…" into a readable "7/31 10:19" for the lane cards.
+  const raw = basename(file).replace(/^rollout-/, "");
+  const ts = raw.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})/);
+  let title = ts
+    ? `${Number(ts[2])}/${Number(ts[3])} ${ts[4]}:${ts[5]}`
+    : raw.slice(0, 36);
   let sawEvent = false;
 
   for (const line of lines) {
