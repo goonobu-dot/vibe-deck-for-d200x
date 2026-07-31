@@ -11,6 +11,7 @@ import {
   takePendingProfile,
   currentProfileName,
 } from "./profiles.js";
+import { DASHBOARD_HTML } from "./dashboard.js";
 
 const TOOLS = new Set<ToolId>(["claude", "codex", "cursor"]);
 const STATUS_TTL_MS = 300;
@@ -99,6 +100,14 @@ export function startServer(port: number): ReturnType<typeof createServer> {
       const url = new URL(req.url || "/", `http://${req.headers.host || "127.0.0.1"}`);
       if (req.method === "GET" && url.pathname === "/health") {
         sendJson(res, 200, { ok: true, demo: process.env.VIBE_DECK_DEMO === "1" });
+        return;
+      }
+      if (req.method === "GET" && url.pathname === "/dashboard") {
+        res.writeHead(200, {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "no-store",
+        });
+        res.end(DASHBOARD_HTML);
         return;
       }
       if (req.method === "GET" && url.pathname === "/status") {
