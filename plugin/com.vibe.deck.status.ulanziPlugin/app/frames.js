@@ -63,6 +63,12 @@ function frameFor(state, nowMs, doneAtMs) {
       return STATE_INDEX.error;
     case "empty":
       return STATE_INDEX.empty;
+    // Phase A には専用フレームが無い論理状態のフォールバック:
+    // done_old（未確認の完了）は done の緑、offline は empty の灰で近似する。
+    case "done_old":
+      return STATE_INDEX.done;
+    case "offline":
+      return STATE_INDEX.empty;
     case "done": {
       if (Number.isFinite(doneAtMs)) {
         const elapsed = now - doneAtMs;

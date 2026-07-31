@@ -11,7 +11,12 @@ export type ToolId = "claude" | "codex" | "cursor";
 export type BridgeHealth = "ok" | "degraded" | "offline";
 
 export interface FocusAction {
-  kind: "activate_app" | "shortcut";
+  /**
+   * activate_app: payload はアプリ名（osascript activate）
+   * shortcut:     payload はキーストローク定義
+   * open_url:     payload は URL（例 "cursor://file/Users/…" — `open <url>` で起動）
+   */
+  kind: "activate_app" | "shortcut" | "open_url";
   payload: string;
 }
 

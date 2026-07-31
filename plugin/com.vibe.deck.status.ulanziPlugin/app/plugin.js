@@ -142,6 +142,17 @@ function activateApp(name) {
   }).unref();
 }
 
+/** Fire-and-forget `open <url>`（cursor:// ディープリンク等）。絶対に throw しない。 */
+function openUrl(url) {
+  try {
+    const child = spawn("open", [url], { stdio: "ignore", detached: true });
+    child.on("error", (err) => log("open url spawn error", String(err)));
+    child.unref();
+  } catch (err) {
+    log("open url threw", String(err));
+  }
+}
+
 const OSA_TIMEOUT_MS = 4000;
 
 /**
@@ -411,6 +422,14 @@ const lastCardKey = new Map();
 const cardActive = new Set();
 /** Registered verb keys (guard-blocked flash targets). @type {Map<string, any>} */
 const verbKeys = new Map();
+/** 機能1a — レーン押下（既読）時刻 per agent key. @type {Map<string, number>} */
+const ackAt = new Map();
+/** OFFLINE カード用に保持する最後の正常タイトル per agent key. @type {Map<string, string>} */
+const lastTitle = new Map();
+/** 機能2 — ツールごとの最新 /status agents スナップショット. @type {Map<string, any[]>} */
+const lastAgents = new Map();
+/** bridge fetch の連続全滅パス数（成功で 0 リセット）. */
+let bridgeFailStreak = 0;
 let paintInFlight = false;
 let needsEmptyFlash = true;
 
@@ -422,6 +441,8 @@ function forgetAgentKey(id) {
   stateSince.delete(id);
   lastCardKey.delete(id);
   cardActive.delete(id);
+  ackAt.delete(id);
+  lastTitle.delete(id);
 }
 
 /** Record a verb key registration so guard feedback can flash the right tile. */
@@ -754,6 +775,13 @@ async function paintToolCards(tool, lanes, now) {
     const title = typeof agent.title === "string" ? agent.title : "";
     const detail = typeof agent.detail === "string" ? agent.detail : "";
     const pop = lanecards.wantsPop(logical, now, doneAt.get(meta.actionid));
+    // 長考アラート: thinking 15分継続で呼吸を速く（content key に含めるので
+    // フリップ時の再レンダは1回だけ）。
+    const urgent = lanecards.isUrgentThinking(
+      logical,
+      now,
+      stateSince.get(meta.actionid),
+    );
     const elapsedMin = lanecards.elapsedMinutes(
       now,
       stateSince.get(meta.actionid),
@@ -766,6 +794,7 @@ async function paintToolCards(tool, lanes, now) {
       elapsedMin,
       detail,
       pop,
+      urgent,
     });
     if (lastCardKey.get(meta.actionid) === contentKey) continue;
 
@@ -776,6 +805,7 @@ async function paintToolCards(tool, lanes, now) {
         elapsedMin,
         detail,
         pop,
+        urgent,
       }),
     );
     const parsed =
@@ -798,23 +828,90 @@ async function paintToolCards(tool, lanes, now) {
   if (sent.length) log("painted cards", tool, sent.join(" "));
 }
 
+/**
+ * 機能1c — bridge 不達時の全レーン OFFLINE 表示。タイトルは最後に見えた
+ * ものを維持。レンダラが死んでいれば Phase A フォールバック（empty 灰）に
+ * 落ちる — bridge 不達とレンダラ死亡は独立に起こるため両対応。
+ */
+async function paintToolOffline(tool, now) {
+  const useCards = !needsEmptyFlash && laneRenderer.available();
+  const sent = [];
+  for (const meta of keys.values()) {
+    if (meta.tool !== tool) continue;
+    if (!useCards) {
+      paintFrameFallback(meta, "offline", now);
+      continue;
+    }
+    const title = lastTitle.get(meta.actionid) || "";
+    const contentKey = lanecards.buildContentKey({
+      tool,
+      slot: meta.slot,
+      state: "offline",
+      title,
+      elapsedMin: 0,
+      detail: "",
+      pop: false,
+      urgent: false,
+    });
+    if (lastCardKey.get(meta.actionid) === contentKey) continue;
+    const reply = await laneRenderer.request(
+      lanecards.buildRenderRequest({
+        state: "offline",
+        title,
+        elapsedMin: 0,
+        detail: "",
+        pop: false,
+        urgent: false,
+      }),
+    );
+    const parsed =
+      reply === null
+        ? { ok: false, error: "renderer unavailable" }
+        : lanecards.parseRendererLine(reply);
+    if (!parsed.ok) {
+      log("offline card render failed", `slot=${meta.slot}`, parsed.error);
+      paintFrameFallback(meta, "offline", now);
+      continue;
+    }
+    client.setState([lanecards.buildCardItem(meta, parsed.format, parsed.data)]);
+    lastCardKey.set(meta.actionid, contentKey);
+    cardActive.add(meta.actionid);
+    lastKeyState.delete(meta.actionid);
+    sent.push(String(meta.slot));
+  }
+  if (sent.length) log("painted offline", tool, sent.join(" "));
+}
+
 async function paint() {
   if (!keys.size || paintInFlight) return;
   paintInFlight = true;
   try {
     const tools = new Set([...keys.values()].map((k) => k.tool));
+    let successCount = 0;
+    let failureCount = 0;
     for (const tool of tools) {
-      let status;
+      let status = null;
       try {
         status = await fetchJson(
           `${BRIDGE}/status?tool=${encodeURIComponent(tool)}`,
         );
+        successCount += 1;
       } catch (err) {
+        failureCount += 1;
         log("bridge fetch failed", String(err));
+      }
+      const now = Date.now();
+      if (!status) {
+        // 3回連続で全滅したら OFFLINE 表示（復帰時は state 差分で自動再描画）。
+        if (lanecards.isBridgeOffline(bridgeFailStreak)) {
+          await paintToolOffline(tool, now);
+        }
         continue;
       }
+      bridgeFailStreak = 0;
       const agents = status.agents || [];
-      const now = Date.now();
+      // 機能2: レーン押下時の focusAction 解決用に最新スナップショットを保持。
+      lastAgents.set(tool, agents);
       /** @type {{ meta: any, agent: any, logical: string }[]} */
       const lanes = [];
       for (const meta of keys.values()) {
@@ -822,20 +919,31 @@ async function paint() {
         const agent = agents.find((a) => a.slot === meta.slot) || {
           state: "empty",
         };
-        const logical =
+        const bridgeState =
           typeof agent.state === "string" ? agent.state : "empty";
         const prevLogical = lastLogicalState.get(meta.actionid);
         // Track when the lane entered its current state (経過時間の起点).
-        if (logical !== prevLogical) {
+        // done→done_old は表示上の変換なので起点はブリッジ状態で数える。
+        if (bridgeState !== prevLogical) {
           stateSince.set(meta.actionid, now);
         }
         // Track the moment a lane ENTERS done — drives the pop frame/GIF.
-        if (logical === "done" && prevLogical !== "done") {
+        if (bridgeState === "done" && prevLogical !== "done") {
           doneAt.set(meta.actionid, now);
-        } else if (logical !== "done") {
+        } else if (bridgeState !== "done") {
           doneAt.delete(meta.actionid);
         }
-        lastLogicalState.set(meta.actionid, logical);
+        lastLogicalState.set(meta.actionid, bridgeState);
+        if (typeof agent.title === "string" && agent.title) {
+          lastTitle.set(meta.actionid, agent.title);
+        }
+        // 機能1a: 既読(ack)・90秒経過を織り込んだ表示上の状態に変換。
+        const logical = lanecards.effectiveLaneState({
+          state: bridgeState,
+          updatedAt: Number(agent.updatedAt),
+          ackAt: ackAt.get(meta.actionid),
+          nowMs: now,
+        });
         lanes.push({ meta, agent, logical });
       }
       if (!lanes.length) continue;
@@ -847,6 +955,9 @@ async function paint() {
         await paintToolFrames(tool, lanes, now);
       }
       paintArmedVerbs(tool, lanes, now);
+    }
+    if (successCount === 0 && failureCount > 0) {
+      bridgeFailStreak += 1;
     }
   } finally {
     paintInFlight = false;
@@ -1249,12 +1360,44 @@ client.on("run", async (msg) => {
     return;
   }
   if (a.includes("agent") || a.includes("focus")) {
-    const tool = String(param.tool || "cursor");
-    const app =
-      tool === "claude" ? "Claude" : tool === "codex" ? "ChatGPT" : "Cursor";
-    activateApp(app);
+    handleAgentPress(msg, param);
   }
 });
+
+/**
+ * レーン（agent キー）押下: 既読処理（機能1a）と焦点実行（機能2）を同時に行う。
+ * focusAction は最新 /status スナップショットから解決し、
+ * open_url → `open <url>`、activate_app → 従来どおり、解決不能 → ツール既定アプリ。
+ */
+function handleAgentPress(msg, param) {
+  const tool = String(param.tool || "cursor");
+  const actionid = String(
+    msg.actionid || msg.ActionID || param.actionid || "",
+  );
+  const meta = actionid ? keys.get(actionid) : undefined;
+  // 既読は押された該当レーンのみ（updatedAt が押下時刻より古い done を idle 化）。
+  if (actionid) {
+    ackAt.set(actionid, Date.now());
+  }
+  const laneTool = meta?.tool || tool;
+  const slot = meta?.slot ?? Number(param.slot || param.Slot || 0);
+  const focus = lanecards.resolveFocusAction(lastAgents.get(laneTool), slot);
+  if (focus?.kind === "open_url") {
+    openUrl(focus.payload);
+    log("agent press: open_url", `slot=${slot}`, focus.payload);
+    return;
+  }
+  if (focus?.kind === "activate_app") {
+    activateApp(focus.payload);
+    log("agent press: activate", `slot=${slot}`, focus.payload);
+    return;
+  }
+  // フォールバック: 従来のツール→アプリ前面化。
+  const app =
+    laneTool === "claude" ? "Claude" : laneTool === "codex" ? "ChatGPT" : "Cursor";
+  activateApp(app);
+  log("agent press: activate fallback", `slot=${slot}`, app);
+}
 
 for (const evt of [
   "dialRotate",

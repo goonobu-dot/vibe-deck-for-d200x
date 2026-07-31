@@ -68,7 +68,8 @@ function ageState(
   state: Exclude<AgentState, "empty">,
   ageSec: number,
 ): Exclude<AgentState, "empty"> {
-  if (state === "done" && ageSec > 90) return "idle";
+  // done は 30 分保持（未確認の完了 — plugin 側が 90 秒超を深緑 done_old 表示）。
+  if (state === "done" && ageSec > 60 * 30) return "idle";
   if (state === "thinking" && ageSec > 300) return "idle";
   if (state === "needs_input" && ageSec > 60 * 30) return "idle";
   return state;

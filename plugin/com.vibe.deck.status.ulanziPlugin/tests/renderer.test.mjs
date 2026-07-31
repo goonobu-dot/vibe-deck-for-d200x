@@ -100,6 +100,24 @@ function assertGif144(buf, { minFrames = 2 } = {}) {
   assert.ok(frames >= minFrames, `expected >=${minFrames} frames, got ${frames}`);
 }
 
+/** Per-frame delays (ms) from the Graphic Control Extension blocks. */
+function gifFrameDelaysMs(buf) {
+  const delays = [];
+  // GCE: 21 F9 04 <flags> <delay lo> <delay hi> <transp idx> 00
+  // (delay in 1/100 s; trailing 00 block terminator filters false positives)
+  for (let i = 0; i < buf.length - 7; i++) {
+    if (
+      buf[i] === 0x21 &&
+      buf[i + 1] === 0xf9 &&
+      buf[i + 2] === 0x04 &&
+      buf[i + 7] === 0x00
+    ) {
+      delays.push(buf.readUInt16LE(i + 4) * 10);
+    }
+  }
+  return delays;
+}
+
 test("lane renderer daemon", { skip: !pillowOk && "python3/Pillow not available" }, async (t) => {
   const renderer = new RendererProc();
   t.after(() => renderer.close());
@@ -144,6 +162,65 @@ test("lane renderer daemon", { skip: !pillowOk && "python3/Pillow not available"
     for (const state of ["idle", "error", "empty"]) {
       const line = await renderer.request({ state, title: state, elapsed: 0 });
       assertPng144(decode(line));
+    }
+  });
+
+  await t.test("done_old (未確認の完了) renders a static deep-green PNG", async () => {
+    const line = await renderer.request({
+      state: "done_old",
+      title: "終わってから放置中",
+      elapsed: 12,
+    });
+    assertPng144(decode(line));
+    // pop hint must NOT animate a done_old card
+    const withPop = await renderer.request({
+      state: "done_old",
+      title: "終わってから放置中",
+      elapsed: 12,
+      frames: "pop",
+    });
+    assertPng144(decode(withPop));
+  });
+
+  await t.test("offline renders a static PNG and keeps the title", async () => {
+    const line = await renderer.request({
+      state: "offline",
+      title: "ブリッジ停止中のセッション",
+      elapsed: 0,
+    });
+    assertPng144(decode(line));
+  });
+
+  await t.test("urgent thinking speeds up the breathing GIF (800ms→350ms)", async () => {
+    const normal = decode(
+      await renderer.request({ state: "thinking", title: "考え中", elapsed: 3 }),
+    );
+    assertGif144(normal);
+    assert.deepEqual(gifFrameDelaysMs(normal), [800, 800]);
+
+    const urgent = decode(
+      await renderer.request({
+        state: "thinking",
+        title: "考え中",
+        elapsed: 16,
+        urgent: true,
+      }),
+    );
+    assertGif144(urgent);
+    assert.deepEqual(gifFrameDelaysMs(urgent), [350, 350]);
+  });
+
+  await t.test("hostile urgent values fall back to the normal cadence", async () => {
+    for (const bad of ["true", 1, {}, null]) {
+      const line = decode(
+        await renderer.request({
+          state: "thinking",
+          title: "x",
+          elapsed: 1,
+          urgent: bad,
+        }),
+      );
+      assert.deepEqual(gifFrameDelaysMs(line), [800, 800], `urgent=${bad}`);
     }
   });
 

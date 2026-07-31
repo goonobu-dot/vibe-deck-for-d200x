@@ -90,6 +90,16 @@ describe("static states", () => {
     assert.equal(frameFor(undefined, 1000), 5);
     assert.equal(frameFor(null, 1000), 5);
   });
+
+  test("card-only logical states map to their closest Phase A frame", () => {
+    // done_old（未確認の完了）→ done の緑 / offline → empty の灰
+    for (const nowMs of [0, 12345678, Date.now()]) {
+      assert.equal(frameFor("done_old", nowMs), STATE_INDEX.done);
+      assert.equal(frameFor("offline", nowMs), STATE_INDEX.empty);
+    }
+    // done_old never pops, even right after a done transition timestamp
+    assert.equal(frameFor("done_old", 1000, 1000), STATE_INDEX.done);
+  });
 });
 
 // ---------------------------------------------------------------------------

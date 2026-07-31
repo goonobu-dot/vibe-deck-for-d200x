@@ -50,17 +50,24 @@ STATES = {
     "idle":        {"bar": (224, 227, 234), "bar_fg": (28, 32, 42),    "label": "IDLE"},
     "thinking":    {"bar": (37, 99, 235),   "bar_fg": (255, 255, 255), "label": "THINK"},
     "done":        {"bar": (22, 163, 74),   "bar_fg": (255, 255, 255), "label": "DONE"},
+    # 未確認の完了: done のまま 90 秒超えたレーン（深緑・押下で既読）。
+    "done_old":    {"bar": (16, 90, 50),    "bar_fg": (255, 255, 255), "label": "DONE"},
     "needs_input": {"bar": (245, 158, 11),  "bar_fg": (255, 255, 255), "label": "INPUT"},
     "error":       {"bar": (239, 68, 68),   "bar_fg": (255, 255, 255), "label": "ERROR"},
     "empty":       {"bar": (58, 58, 62),    "bar_fg": (190, 190, 196), "label": "READY"},
+    # bridge 不達: 濃灰・タイトルは維持して表示。
+    "offline":     {"bar": (45, 48, 55),    "bar_fg": (255, 255, 255), "label": "OFFLINE"},
 }
 # Dim variants for the 2nd animation frame (breathing / blink-off).
 DIM_BAR = {
     "thinking": (16, 44, 106),
+    # 長考アラート: 色相は同じ青のまま明暗差だけ強める。
+    "thinking_urgent": (8, 22, 58),
     "needs_input": (128, 82, 6),
 }
 
 THINKING_FRAME_MS = 800   # half of the Phase A 1600ms breathing period
+THINKING_URGENT_FRAME_MS = 350  # 長考アラート: 呼吸を速める
 NEEDS_INPUT_FRAME_MS = 250  # half of the Phase A 500ms blink period
 POP_FRAME_MS = 600
 POP_REST_MS = 1400
@@ -243,14 +250,17 @@ def render_request(req: dict) -> str:
     detail = clamp_str(req.get("detail"))
     elapsed = clamp_elapsed(req.get("elapsed"))
     frames_hint = clamp_str(req.get("frames"))
+    urgent = req.get("urgent") is True  # hostile / missing → False
 
     if state == "thinking":
+        frame_ms = THINKING_URGENT_FRAME_MS if urgent else THINKING_FRAME_MS
+        dim_bar = DIM_BAR["thinking_urgent"] if urgent else DIM_BAR["thinking"]
         bright = draw_card(state, title, elapsed, detail)
         dim = draw_card(
             state, title, elapsed, detail,
-            bar_override=DIM_BAR["thinking"], dim_body=True,
+            bar_override=dim_bar, dim_body=True,
         )
-        return encode_gif([bright, dim], [THINKING_FRAME_MS, THINKING_FRAME_MS])
+        return encode_gif([bright, dim], [frame_ms, frame_ms])
 
     if state == "needs_input":
         on = draw_card(state, title, elapsed, detail)

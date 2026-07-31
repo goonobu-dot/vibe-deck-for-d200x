@@ -27,6 +27,7 @@ test("content key changes on every relevant field", () => {
     { elapsedMin: 4 },
     { detail: "Bash: git push" },
     { pop: true },
+    { urgent: true },
   ]) {
     assert.notEqual(
       lanecards.buildContentKey({ ...base, ...patch }),
@@ -93,12 +94,216 @@ test("wantsPop only inside the window and only for done", () => {
 // --- renderable states ------------------------------------------------------
 
 test("isRenderableState accepts known states only", () => {
-  for (const s of ["idle", "thinking", "done", "needs_input", "error", "empty"]) {
+  for (const s of [
+    "idle",
+    "thinking",
+    "done",
+    "done_old",
+    "needs_input",
+    "error",
+    "empty",
+    "offline",
+  ]) {
     assert.equal(lanecards.isRenderableState(s), true, s);
   }
   assert.equal(lanecards.isRenderableState("bogus"), false);
   assert.equal(lanecards.isRenderableState(undefined), false);
   assert.equal(lanecards.isRenderableState(3), false);
+});
+
+// --- 機能1a: 既読 / done_old -------------------------------------------------
+
+test("effectiveLaneState keeps fresh done as done", () => {
+  const t0 = 1_000_000;
+  assert.equal(
+    lanecards.effectiveLaneState({
+      state: "done",
+      updatedAt: t0,
+      ackAt: undefined,
+      nowMs: t0 + 10_000,
+    }),
+    "done",
+  );
+  // exactly at the boundary stays done; just past it goes done_old
+  assert.equal(
+    lanecards.effectiveLaneState({
+      state: "done",
+      updatedAt: t0,
+      nowMs: t0 + lanecards.DONE_OLD_AFTER_MS,
+    }),
+    "done",
+  );
+});
+
+test("effectiveLaneState flips unacked done to done_old after 90s", () => {
+  const t0 = 1_000_000;
+  assert.equal(
+    lanecards.effectiveLaneState({
+      state: "done",
+      updatedAt: t0,
+      nowMs: t0 + lanecards.DONE_OLD_AFTER_MS + 1,
+    }),
+    "done_old",
+  );
+});
+
+test("effectiveLaneState acks done/done_old to idle when pressed after updatedAt", () => {
+  const t0 = 1_000_000;
+  // ack after the completion → idle, even long past the done_old threshold
+  assert.equal(
+    lanecards.effectiveLaneState({
+      state: "done",
+      updatedAt: t0,
+      ackAt: t0 + 5_000,
+      nowMs: t0 + 600_000,
+    }),
+    "idle",
+  );
+  // ack exactly at updatedAt counts as read
+  assert.equal(
+    lanecards.effectiveLaneState({
+      state: "done",
+      updatedAt: t0,
+      ackAt: t0,
+      nowMs: t0 + 200_000,
+    }),
+    "idle",
+  );
+  // a NEW completion after the ack shows done again (未読に戻る)
+  assert.equal(
+    lanecards.effectiveLaneState({
+      state: "done",
+      updatedAt: t0 + 10_000,
+      ackAt: t0 + 5_000,
+      nowMs: t0 + 11_000,
+    }),
+    "done",
+  );
+});
+
+test("effectiveLaneState leaves non-done states untouched (ack has no effect)", () => {
+  const t0 = 1_000_000;
+  for (const s of ["idle", "thinking", "needs_input", "error", "empty"]) {
+    assert.equal(
+      lanecards.effectiveLaneState({
+        state: s,
+        updatedAt: t0,
+        ackAt: t0 + 999_999,
+        nowMs: t0 + 999_999,
+      }),
+      s,
+    );
+  }
+});
+
+test("effectiveLaneState tolerates missing/bad timestamps", () => {
+  assert.equal(
+    lanecards.effectiveLaneState({ state: "done", nowMs: 1000 }),
+    "done",
+  );
+  assert.equal(
+    lanecards.effectiveLaneState({
+      state: "done",
+      updatedAt: NaN,
+      ackAt: NaN,
+      nowMs: NaN,
+    }),
+    "done",
+  );
+});
+
+// --- 機能1b: 長考アラート ----------------------------------------------------
+
+test("isUrgentThinking fires only for thinking past 15 minutes", () => {
+  const t0 = 1_000_000;
+  const limit = lanecards.URGENT_THINKING_MS;
+  assert.equal(lanecards.isUrgentThinking("thinking", t0 + limit - 1, t0), false);
+  assert.equal(lanecards.isUrgentThinking("thinking", t0 + limit, t0), true);
+  assert.equal(lanecards.isUrgentThinking("thinking", t0 + limit * 2, t0), true);
+  assert.equal(lanecards.isUrgentThinking("done", t0 + limit, t0), false);
+  assert.equal(lanecards.isUrgentThinking("thinking", t0, undefined), false);
+  assert.equal(lanecards.isUrgentThinking("thinking", NaN, t0), false);
+  // clock skew: since in the future → not urgent
+  assert.equal(lanecards.isUrgentThinking("thinking", t0, t0 + limit), false);
+});
+
+// --- 機能1c: OFFLINE 判定 ----------------------------------------------------
+
+test("isBridgeOffline needs 3 consecutive failures", () => {
+  assert.equal(lanecards.isBridgeOffline(0), false);
+  assert.equal(lanecards.isBridgeOffline(2), false);
+  assert.equal(lanecards.isBridgeOffline(3), true);
+  assert.equal(lanecards.isBridgeOffline(10), true);
+  assert.equal(lanecards.isBridgeOffline(NaN), false);
+  assert.equal(lanecards.isBridgeOffline(undefined), false);
+  assert.equal(lanecards.isBridgeOffline(-5), false);
+});
+
+// --- 機能2: focusAction 解決 -------------------------------------------------
+
+test("resolveFocusAction returns validated open_url for the pressed slot", () => {
+  const agents = [
+    { slot: 1, focusAction: { kind: "activate_app", payload: "Cursor" } },
+    {
+      slot: 2,
+      focusAction: {
+        kind: "open_url",
+        payload: "cursor://file/Users/admin/cursor/skill",
+      },
+    },
+  ];
+  assert.deepEqual(lanecards.resolveFocusAction(agents, 2), {
+    kind: "open_url",
+    payload: "cursor://file/Users/admin/cursor/skill",
+  });
+  assert.deepEqual(lanecards.resolveFocusAction(agents, 1), {
+    kind: "activate_app",
+    payload: "Cursor",
+  });
+});
+
+test("resolveFocusAction rejects malformed or unsafe actions", () => {
+  // no scheme → not a URL → reject (open would treat it as a file path)
+  assert.equal(
+    lanecards.resolveFocusAction(
+      [{ slot: 1, focusAction: { kind: "open_url", payload: "/etc/passwd" } }],
+      1,
+    ),
+    null,
+  );
+  assert.equal(
+    lanecards.resolveFocusAction(
+      [{ slot: 1, focusAction: { kind: "open_url", payload: "" } }],
+      1,
+    ),
+    null,
+  );
+  assert.equal(
+    lanecards.resolveFocusAction(
+      [{ slot: 1, focusAction: { kind: "shortcut", payload: "cmd+1" } }],
+      1,
+    ),
+    null,
+  );
+  assert.equal(
+    lanecards.resolveFocusAction(
+      [{ slot: 1, focusAction: { kind: "open_url", payload: 42 } }],
+      1,
+    ),
+    null,
+  );
+  assert.equal(lanecards.resolveFocusAction([{ slot: 1 }], 1), null);
+  assert.equal(lanecards.resolveFocusAction([], 1), null);
+  assert.equal(lanecards.resolveFocusAction(null, 1), null);
+  assert.equal(lanecards.resolveFocusAction(undefined, 1), null);
+  // slot mismatch
+  assert.equal(
+    lanecards.resolveFocusAction(
+      [{ slot: 2, focusAction: { kind: "activate_app", payload: "Cursor" } }],
+      1,
+    ),
+    null,
+  );
 });
 
 // --- renderer reply parsing -------------------------------------------------
@@ -182,10 +387,24 @@ test("buildRenderRequest normalizes fields for the daemon", () => {
       elapsed: 5,
       detail: "Bash: git push",
       frames: "",
+      urgent: false,
     },
   );
   const bad = lanecards.buildRenderRequest({ state: "done", elapsedMin: NaN, pop: true });
   assert.equal(bad.elapsed, 0);
   assert.equal(bad.frames, "pop");
   assert.equal(bad.title, "");
+  assert.equal(bad.urgent, false);
+});
+
+test("buildRenderRequest passes urgent through strictly", () => {
+  assert.equal(
+    lanecards.buildRenderRequest({ state: "thinking", urgent: true }).urgent,
+    true,
+  );
+  // truthy-but-not-true never leaks to the renderer
+  assert.equal(
+    lanecards.buildRenderRequest({ state: "thinking", urgent: 1 }).urgent,
+    false,
+  );
 });

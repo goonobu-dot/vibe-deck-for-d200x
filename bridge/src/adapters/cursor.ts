@@ -4,8 +4,9 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { RawAgent } from "../types.js";
+import type { FocusAction, RawAgent } from "../types.js";
 import { invalidateStatus } from "../lib/cache.js";
+import { decodeProjectDirCached } from "../lib/projectpath.js";
 import type { AdapterResult, ToolAdapter } from "./types.js";
 
 const execFileAsync = promisify(execFile);
@@ -117,6 +118,9 @@ function ensureWatchers(): void {
   }
 }
 
+/** done を維持する時間（未確認の完了を残す — plugin 側が 90 秒超を深緑表示）。 */
+const DONE_HOLD_SEC = 60 * 30;
+
 function inferState(lines: string[], ageSec: number): RawAgent["state"] {
   const last = (lines[lines.length - 1] || "").toLowerCase();
   const prev = (lines[lines.length - 2] || "").toLowerCase();
@@ -140,12 +144,16 @@ function inferState(lines: string[], ageSec: number): RawAgent["state"] {
   }
 
   if (/turn_ended/.test(last)) {
-    if (ageSec <= 90) return "done";
+    if (ageSec <= DONE_HOLD_SEC) return "done";
     return "idle";
   }
 
-  if (/role":"assistant"/.test(last) && ageSec <= 90) return "done";
-  if (/role":"assistant"/.test(prev) && /turn_ended/.test(last) && ageSec <= 90) {
+  if (/role":"assistant"/.test(last) && ageSec <= DONE_HOLD_SEC) return "done";
+  if (
+    /role":"assistant"/.test(prev) &&
+    /turn_ended/.test(last) &&
+    ageSec <= DONE_HOLD_SEC
+  ) {
     return "done";
   }
 
@@ -180,6 +188,20 @@ function titleFromTranscript(lines: string[], file: string): string {
     return `${d.getMonth() + 1}/${d.getDate()} session`;
   }
   return "Cursor";
+}
+
+/**
+ * レーン押下時のジャンプ先: プロジェクト dir 名を実パスへ復号できたら
+ * cursor:// ディープリンク（Cursor がそのフォルダを開く）、できなければ
+ * 従来どおりアプリ前面化。
+ */
+function focusActionForFile(file: string): FocusAction {
+  const proj = file.split("/projects/")[1]?.split("/")[0] ?? "";
+  if (proj) {
+    const real = decodeProjectDirCached(proj);
+    if (real) return { kind: "open_url", payload: `cursor://file${real}` };
+  }
+  return { kind: "activate_app", payload: "Cursor" };
 }
 
 async function readCached(file: string, mtime: number): Promise<FileCache | null> {
@@ -221,7 +243,7 @@ async function agentsFromTranscripts(): Promise<RawAgent[]> {
       title: cached.title,
       state,
       updatedAt: item.mtime,
-      focusAction: { kind: "activate_app", payload: "Cursor" },
+      focusAction: focusActionForFile(item.file),
     });
   }
   return agents;
