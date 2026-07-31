@@ -14,6 +14,7 @@
     --codex:#2dd4bf;
     --cursor:#4c8dff;
     --st-idle:#f2f1ec; --st-think:#3f8cff; --st-done:#3ddc84;
+    --st-doneold:#105a32; --st-offline:#2d3037;
     --st-input:#ff9f2e; --st-error:#ff4d4d; --st-ready:#525b68;
     --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
     --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI",Meiryo,sans-serif;
@@ -274,6 +275,7 @@
   .lg-idle{background:var(--st-idle)} .lg-think{background:var(--st-think)}
   .lg-done{background:var(--st-done)} .lg-input{background:var(--st-input)}
   .lg-error{background:var(--st-error)} .lg-ready{background:var(--st-ready)}
+  .lg-doneold{background:var(--st-doneold)} .lg-offline{background:var(--st-offline);border:1px solid var(--line2)}
   .deck-note{
     max-width:680px;margin:18px auto 0;font-size:13.5px;color:var(--mut);
     border-left:2px solid var(--line2);padding-left:14px;
@@ -429,8 +431,8 @@
       <h1>Vibe Deck<br>for <span class="d200x">D200X</span></h1>
       <div class="tri-rule" aria-hidden="true"><i></i><i></i><i></i></div>
       <p class="sub">
-        <span class="en">Turn your Ulanzi D200X into a command deck for <strong>Claude Code</strong>, <strong>Codex</strong>, and <strong>Cursor</strong>. Watch up to five agents by colour, and approve, reject, or stop them without touching the screen.</span>
-        <span class="ja">Ulanzi D200X を <strong>Claude Code</strong> / <strong>Codex</strong> / <strong>Cursor</strong> のコマンドデッキに。最大5つのエージェントを色で監視し、画面に触れずに承認・否認・中断できます。</span>
+        <span class="en">Turn your Ulanzi D200X into a command deck for <strong>Claude Code</strong>, <strong>Codex</strong>, and <strong>Cursor</strong>. Watch up to five agents on live lane cards — session name, elapsed time, and what's awaiting approval — and approve, reject, or stop them without touching the screen.</span>
+        <span class="ja">Ulanzi D200X を <strong>Claude Code</strong> / <strong>Codex</strong> / <strong>Cursor</strong> のコマンドデッキに。最大5つのエージェントをライブなレーンカード（セッション名・経過時間・承認内容）で監視し、画面に触れずに承認・否認・中断できます。</span>
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://github.com/goonobu-dot/vibe-deck-for-d200x" target="_blank" rel="noopener">
@@ -466,13 +468,13 @@
         </div>
         <div class="feat" style="--fa:var(--st-input)">
           <h3><span class="en">State-guarded keys</span><span class="ja">誤爆防止ガード</span></h3>
-          <p><span class="en">Accept / Reject only fire while the lane is orange (Input) — Cursor also allows green (Done) for accepting all pending edits. Stop fires only on blue or orange. Mispresses fail safe: nothing is sent.</span>
-          <span class="ja">Accept / Reject は橙（Input）のときだけ送出（Cursor のみ緑 Done でも有効＝変更の一括承認/棄却）。Stop は青/橙のときのみ。押し間違えても安全側に倒れ、何も送出されません。</span></p>
+          <p><span class="en">Accept / Reject only fire while the lane is orange (Input) — Cursor also allows green (Done) for accepting all pending edits. Stop fires only on blue or orange. A guard-blocked press sends nothing: you get a warning sound and a red flash on the key. While a lane is orange, the Accept key itself blinks orange (Armed).</span>
+          <span class="ja">Accept / Reject は橙（Input）のときだけ送出（Cursor のみ緑 Done でも有効＝変更の一括承認/棄却）。Stop は青/橙のときのみ。ガードに阻止された押下は何も送出されず、警告音＋キーの赤フラッシュで知らせます。橙の間は Accept キー自体がオレンジ点滅（Armed）します。</span></p>
         </div>
         <div class="feat" style="--fa:var(--st-think)">
-          <h3><span class="en">5 agent lanes</span><span class="ja">5本のエージェントレーン</span></h3>
-          <p><span class="en">The top row always shows the state colours of up to five parallel sessions — on every page. Press a lane to bring the app to the front.</span>
-          <span class="ja">上段5キーは並列セッション最大5つの状態色。どのページでも常に表示され、監視が途切れません。押すとアプリが前面化します。</span></p>
+          <h3><span class="en">5 dynamic lane cards</span><span class="ja">5枚の動的レーンカード</span></h3>
+          <p><span class="en">Each top-row key is a full-colour card: state label, elapsed time, session name, and — while orange — what awaits approval (e.g. <kbd>Bash: git push</kbd>). Thinking breathes, Input blinks, Done pops a white check; lanes light up left to right at startup. Press a lane to mark it read and focus the tool — Cursor jumps straight to that project's window via a <kbd>cursor://</kbd> deep link.</span>
+          <span class="ja">上段5キーは全面1色のカード（状態色＋白抜き文字）。状態ラベル・経過時間・セッション名、橙のときは承認内容（例 <kbd>Bash: git push</kbd>）を表示。作業中は呼吸、承認待ちは点滅、完了直後は白チェックのポップ、起動時は左から順に点灯。押すと既読化＋フォーカスで、Cursor は <kbd>cursor://</kbd> ディープリンクで該当プロジェクトのウィンドウへ直接ジャンプします。</span></p>
         </div>
         <div class="feat" style="--fa:var(--codex)">
           <h3><span class="en">Dials + Tool key</span><span class="ja">ダイヤルと Tool キー</span></h3>
@@ -486,8 +488,8 @@
         </div>
         <div class="feat" style="--fa:var(--cursor)">
           <h3><span class="en">Local bridge</span><span class="ja">ローカルブリッジ</span></h3>
-          <p><span class="en">A resident process on <kbd>127.0.0.1:17823</kbd> aggregates agent state; the plugin diff-updates tiles about every 150&nbsp;ms. If the bridge stops, Accept / Reject / Stop are withheld — fail safe.</span>
-          <span class="ja">常駐プロセス（<kbd>127.0.0.1:17823</kbd>）が状態を集約し、プラグインが約150msで差分更新。ブリッジ停止時は Accept / Reject / Stop を送出しない安全設計。</span></p>
+          <p><span class="en">A resident process on <kbd>127.0.0.1:17823</kbd> aggregates agent state; the plugin diff-updates tiles about every 150&nbsp;ms. Claude Code hooks push approvals to <kbd>/event</kbd>, and <kbd>/dashboard</kbd> shows every tool's lanes live in a browser on the same Mac. If the bridge stops, Accept / Reject / Stop are withheld and all lanes show dark-gray OFFLINE (after 3 consecutive failed fetches; recovers automatically).</span>
+          <span class="ja">常駐プロセス（<kbd>127.0.0.1:17823</kbd>）が状態を集約し、プラグインが約150msで差分更新。Claude Code の hooks が <kbd>/event</kbd> に承認を通知し、<kbd>/dashboard</kbd> では全ツールのレーンを同一 Mac のブラウザでライブ表示。ブリッジ停止時は Accept / Reject / Stop を送出せず、全レーンが濃灰 OFFLINE 表示（3回連続の取得失敗で表示・自動復帰）。</span></p>
         </div>
       </div>
     </div>
@@ -613,16 +615,18 @@
 
         <div class="legend" aria-label="State colours">
           <span><i class="lg-idle"></i>Idle</span>
-          <span><i class="lg-think"></i>Thinking</span>
-          <span><i class="lg-done"></i>Done</span>
-          <span><i class="lg-input"></i><span class="en">Input (needs approval)</span><span class="ja">Input（承認・入力待ち）</span></span>
+          <span><i class="lg-think"></i><span class="en">Thinking (breathes; 2× faster after 15 min)</span><span class="ja">Thinking（呼吸。15分超で約2倍速）</span></span>
+          <span><i class="lg-done"></i><span class="en">Done (just finished)</span><span class="ja">Done（完了直後）</span></span>
+          <span><i class="lg-doneold"></i><span class="en">Done, unread (90 s → up to 30 min; press = read)</span><span class="ja">未確認の完了（90秒後〜最大30分。押下で既読）</span></span>
+          <span><i class="lg-input"></i><span class="en">Input (needs approval, blinks)</span><span class="ja">Input（承認・入力待ち・点滅）</span></span>
           <span><i class="lg-error"></i>Error</span>
           <span><i class="lg-ready"></i><span class="en">Ready (empty lane)</span><span class="ja">Ready（空きレーン）</span></span>
+          <span><i class="lg-offline"></i><span class="en">OFFLINE (bridge unreachable)</span><span class="ja">OFFLINE（bridge 不達）</span></span>
         </div>
 
         <p class="deck-note">
-          <span class="en"><b>Guard dots:</b> the small dots on Accept / Reject / Stop show which lane states arm that key — orange arms Accept / Reject (switch the profile to Cursor above and a green dot appears: Cursor also fires on Done), blue + orange arm Stop. The slim bar at the bottom right is the built-in widget window (clock), not a key. Skill keys type a prompt opening into the chat box — they never auto-send.</span>
-          <span class="ja"><b>ガードドット:</b> Accept / Reject / Stop の下の小さな点は「どの状態でそのキーが発火するか」を示します。橙で Accept / Reject が有効（上のプロファイルを Cursor にすると緑の点が増えます＝Cursor は Done でも有効）、Stop は青＋橙。下段右端の細長い表示は本体の小窓ウィジェット（時計）でキーではありません。Skills キーはプロンプト冒頭を入力するだけで、送信はしません。</span>
+          <span class="en"><b>Lane cards are live:</b> on the real deck each lane is a full-colour card showing the state label, elapsed time, and session name (Claude Code = session title, Codex = thread name or its start time, Cursor = project folder name), plus the pending approval while orange. Pressing a lane marks it read and focuses the tool. <b>Guard dots:</b> the small dots on Accept / Reject / Stop show which lane states arm that key — orange arms Accept / Reject (switch the profile to Cursor above and a green dot appears: Cursor also fires on Done), blue + orange arm Stop; while a lane is orange the Accept key blinks orange (Armed), and a guard-blocked press answers with a warning sound and a red flash. The slim bar at the bottom right is the built-in widget window (clock), not a key. Skill keys type a prompt opening into the chat box — they never auto-send.</span>
+          <span class="ja"><b>レーンは動的カード:</b> 実機では各レーンが全面1色のカードになり、状態ラベル・経過時間・セッション名（Claude Code=セッションタイトル / Codex=スレッド名か開始日時 / Cursor=プロジェクトフォルダ名）、橙のときは承認内容まで表示します。押すと既読化＋フォーカス。<b>ガードドット:</b> Accept / Reject / Stop の下の小さな点は「どの状態でそのキーが発火するか」を示します。橙で Accept / Reject が有効（上のプロファイルを Cursor にすると緑の点が増えます＝Cursor は Done でも有効）、Stop は青＋橙。橙の間は Accept キーがオレンジ点滅（Armed）し、ガードに阻止された押下は警告音＋赤フラッシュで知らせます。下段右端の細長い表示は本体の小窓ウィジェット（時計）でキーではありません。Skills キーはプロンプト冒頭を入力するだけで、送信はしません。</span>
         </p>
       </div>
     </div>
@@ -666,6 +670,30 @@ cd vibe-deck-for-d200x
           <div class="warnbox">
             <p><span class="en"><b>First press:</b> the first time you press a verb key, macOS may show an Automation permission dialog. You must approve it — until then, keys like Accept are silently not sent.</span>
             <span class="ja"><b>初回押下時:</b> verb キーを初めて押すと macOS のオートメーション許可ダイアログが出ることがあります。必ず許可してください — 未許可の間は Accept 等のキーが送出されません。</span></p>
+          </div>
+          <p class="gsub" style="margin-top:26px"><span class="en">Claude Code approval hooks (recommended)</span><span class="ja">Claude Code 承認フック（推奨）</span></p>
+          <p style="font-size:13.5px;color:var(--mut);margin-bottom:12px">
+            <span class="en">Register the bundled hook script in <code style="font-family:var(--mono);font-size:12.5px">~/.claude/settings.json</code> — the Notification / Stop hooks report to the bridge's <code style="font-family:var(--mono);font-size:12.5px">/event</code> endpoint, so a lane turns orange the moment approval is requested. Replace the path with your own checkout. Hooks take effect from new sessions.</span>
+            <span class="ja">同梱のフックスクリプトを <code style="font-family:var(--mono);font-size:12.5px">~/.claude/settings.json</code> の hooks に登録すると、Notification / Stop フックが bridge の <code style="font-family:var(--mono);font-size:12.5px">/event</code> へ通知し、承認要求の瞬間に確実にレーンが橙になります。パスは自分の環境に置き換えてください。hooks は新規セッションから有効です。</span>
+          </p>
+          <div class="codeblock">
+            <div class="cb-head"><i></i><i></i><i></i> ~/.claude/settings.json</div>
+            <pre>{
+  "hooks": {
+    "Notification": [
+      { "hooks": [ {
+        "type": "command",
+        "command": "\"/path/to/vibe-deck/scripts/claude-hooks/vibe-deck-event.sh\" needs_input"
+      } ] }
+    ],
+    "Stop": [
+      { "hooks": [ {
+        "type": "command",
+        "command": "\"/path/to/vibe-deck/scripts/claude-hooks/vibe-deck-event.sh\" done"
+      } ] }
+    ]
+  }
+}</pre>
           </div>
         </div>
       </div>
@@ -724,6 +752,10 @@ cd vibe-deck-for-d200x
         <div class="gnotes">
           <div class="gnote"><span class="en"><b>Reject vs Stop are both Esc.</b> Claude has no dedicated decline key, so the lane state decides the meaning: press on orange = decline, press on blue = interrupt. The guard makes mixing them up fail safe.</span>
           <span class="ja"><b>Reject と Stop はどちらも Esc。</b>Claude には否認専用キーがないため、状態側で意味が決まります（橙で押せば否認、青で押せば中断）。ガードがあるので取り違えても安全側に倒れます。</span></div>
+          <div class="gnote"><span class="en"><b>Lane cards show the session title.</b> Each lane is a full-colour card with the state label, elapsed time, and the Claude Code session title; while orange it also shows what awaits approval (e.g. <code>Bash: git push</code>). Pressing a lane marks it read and brings Claude.app to the front.</span>
+          <span class="ja"><b>レーンカードにはセッションタイトルが出ます。</b>各レーンは全面1色のカードで、状態ラベル・経過時間・Claude Code のセッションタイトルを表示。橙のときは承認内容（例 <code>Bash: git push</code>）も表示します。押すと既読化＋ Claude.app 前面化。</span></div>
+          <div class="gnote"><span class="en"><b>Approval hooks make orange instant.</b> Register the Notification / Stop hooks (see Install above) and a lane turns orange the moment approval is requested; the Accept key blinks orange (Armed) while it waits. Accept confirms the dialog's default (e.g. allow once), Reject declines, Stop interrupts. Hooks take effect from new sessions.</span>
+          <span class="ja"><b>承認フックで橙が確実になります。</b>Notification / Stop フックを登録すると（上の Install 参照）、承認要求の瞬間にレーンが橙になり、その間 Accept キーがオレンジ点滅（Armed）します。Accept=承認（「一度だけ許可」等の既定を確定）/ Reject=拒否 / Stop=中断。hooks は新規セッションから有効です。</span></div>
           <div class="gnote"><span class="en"><b>Too many approvals?</b> The proper fix is Mode (⇧⌘M): relax Permission to Accept edits / Auto.</span>
           <span class="ja"><b>承認が多すぎるときは</b> Mode（⇧⌘M）で Permission を Accept edits / Auto に緩めるのが本筋です。</span></div>
         </div>
@@ -769,6 +801,8 @@ cd vibe-deck-for-d200x
           <span class="ja"><b>Accept は「一度だけ許可」。</b>セッション全体を許可したい場合は画面上で <code>s</code>（session）を選ぶか、Mode（/permissions）で恒久設定を変更してください。</span></div>
           <div class="gnote"><span class="en"><b>Slash keys need chat focus.</b> If <code>/plan</code> etc. gets sent as plain text, focus was outside the chat box — press a lane key to bring ChatGPT to the front, click the chat box, then retry.</span>
           <span class="ja"><b>スラッシュ系はチャット欄フォーカスが必要。</b><code>/plan</code> などが文章として送信されてしまったら、入力欄以外にフォーカスがあった状態です。上段レーンを押して ChatGPT を前面化し、入力欄をクリックしてから再実行してください。</span></div>
+          <div class="gnote"><span class="en"><b>Lane cards show the thread name.</b> Unnamed threads show their start time instead (e.g. <code>7/31 10:19</code>) — name the thread in Codex and the name appears on the card.</span>
+          <span class="ja"><b>レーンカードにはスレッド名が出ます。</b>無名のスレッドは開始日時（例 <code>7/31 10:19</code>）が表示されます — Codex 側でスレッドに名前を付けるとその名前がカードに出ます。</span></div>
         </div>
       </div>
 
@@ -810,6 +844,8 @@ cd vibe-deck-for-d200x
           <span class="ja"><b>緑（Done）でも Accept / Reject が有効なのは Cursor だけ。</b>Done は「編集完了・変更が保留中」の意味です。Diff で確認して、Accept（全部通す）か Reject（⌘⌫で全部戻す）を手元で選べます。</span></div>
           <div class="gnote"><span class="en"><b>MCP approval focus issue (known Cursor issue):</b> if the approval dialog loses focus, Return alone may not work. Press Tab on the physical keyboard, then Accept on the deck again.</span>
           <span class="ja"><b>MCP 承認の既知問題:</b> 承認ダイアログのフォーカスがずれていると Return 単体で効かないことがあります（Cursor 公式の既知問題）。本体キーボードで Tab → もう一度デッキの Accept を押してください。</span></div>
+          <div class="gnote"><span class="en"><b>Lane press jumps to the project.</b> Lane cards are named after the project folder, and pressing a lane opens a <code>cursor://</code> deep link that jumps straight to that project's window (falls back to bringing Cursor to the front if the path cannot be resolved).</span>
+          <span class="ja"><b>レーン押下でプロジェクトへ直接ジャンプ。</b>レーンカードの名前はプロジェクトフォルダ名で、押すと <code>cursor://</code> ディープリンクにより該当プロジェクトのウィンドウへ直接ジャンプします（パスの復号に失敗した場合はアプリ前面化にフォールバック）。</span></div>
           <div class="gnote"><span class="en"><b>State colours can lag slightly:</b> the bridge watches Cursor’s transcript, so updates depend on its write timing. Refresh (Page 3) re-fetches.</span>
           <span class="ja"><b>色の反映がわずかに遅れることがあります:</b> ブリッジは Cursor の transcript を監視するため、書き出しタイミングに依存します。Page 3 の Refresh で再取得できます。</span></div>
         </div>
@@ -828,9 +864,19 @@ cd vibe-deck-for-d200x
       </p>
       <div class="faq">
         <details>
-          <summary><span class="en">I press Accept and nothing happens</span><span class="ja">Accept を押しても何も起きない</span></summary>
-          <div class="body"><span class="en">Most likely working as intended. The guard only lets Accept / Reject fire while the lane is orange (Cursor: also green), and Stop only on blue / orange. If <code>~/Library/Logs/vibe-deck-plugin.log</code> shows <code>guard blocked</code>, it is behaving exactly as designed.</span>
-          <span class="ja">正常の可能性大です。ガードにより Accept / Reject は橙のときだけ（Cursor は緑も）、Stop は青/橙のときだけ送出されます。<code>~/Library/Logs/vibe-deck-plugin.log</code> に <code>guard blocked</code> とあれば仕様どおりです。</span></div>
+          <summary><span class="en">I press Accept and it beeps with a red flash</span><span class="ja">Accept を押すと警告音が鳴りキーが赤くフラッシュする</span></summary>
+          <div class="body"><span class="en">Working as intended. The guard only lets Accept / Reject fire while the lane is orange (Cursor: also green), and Stop only on blue / orange. A blocked press sends nothing and answers with a warning sound plus a red flash on the pressed key. If <code>~/Library/Logs/vibe-deck-plugin.log</code> shows <code>guard blocked</code>, it is behaving exactly as designed.</span>
+          <span class="ja">仕様どおりです。ガードにより Accept / Reject は橙のときだけ（Cursor は緑も）、Stop は青/橙のときだけ送出されます。阻止された押下は何も送出されず、警告音＋押したキーの赤フラッシュで知らせます。<code>~/Library/Logs/vibe-deck-plugin.log</code> に <code>guard blocked</code> とあれば仕様どおりです。</span></div>
+        </details>
+        <details>
+          <summary><span class="en">A lane turned dark green — what is that?</span><span class="ja">レーンが深緑になった — これは何？</span></summary>
+          <div class="body"><span class="en">An unacknowledged completion. A lane that finished (green) more than 90 seconds ago turns dark green and is kept for up to 30 minutes so you don't miss it. Press the lane to mark it read — it returns to white.</span>
+          <span class="ja">未確認の完了です。完了（緑）から90秒を過ぎた未読レーンは深緑になり、見逃さないよう最大30分保持されます。レーンを押すと既読になり白へ戻ります。</span></div>
+        </details>
+        <details>
+          <summary><span class="en">Is there a way to see the lanes on screen too?</span><span class="ja">レーンを画面でも見たい</span></summary>
+          <div class="body"><span class="en">Yes — open <code>http://127.0.0.1:17823/dashboard</code> in a browser on the same Mac. It shows every tool's lanes live.</span>
+          <span class="ja">同一 Mac のブラウザで <code>http://127.0.0.1:17823/dashboard</code> を開くと、全ツールのレーンをライブ表示できます。</span></div>
         </details>
         <details>
           <summary><span class="en">The first key press shows a macOS dialog</span><span class="ja">初回押下で macOS のダイアログが出る</span></summary>
@@ -859,8 +905,8 @@ cd vibe-deck-for-d200x
         </details>
         <details>
           <summary><span class="en">What happens if the bridge stops?</span><span class="ja">ブリッジが停止したら？</span></summary>
-          <div class="body"><span class="en">The deck fails safe: Accept / Reject / Stop are withheld entirely. Other keys (Diff, New, Skills, System) keep working.</span>
-          <span class="ja">安全側に倒れます。Accept / Reject / Stop は一切送出されず、他のキー（Diff / New / Skills / System）は動き続けます。</span></div>
+          <div class="body"><span class="en">The deck fails safe: Accept / Reject / Stop are withheld entirely, and after 3 consecutive failed fetches every lane shows a dark-gray OFFLINE card. Other keys (Diff, New, Skills, System) keep working, and the lanes recover automatically once the bridge is reachable again.</span>
+          <span class="ja">安全側に倒れます。Accept / Reject / Stop は一切送出されず、取得が3回連続で失敗すると全レーンが濃灰の OFFLINE カード表示になります。他のキー（Diff / New / Skills / System）は動き続け、ブリッジが復旧すればレーンは自動で通常表示に戻ります。</span></div>
         </details>
         <details>
           <summary><span class="en">Pages don't flip</span><span class="ja">ページが切り替わらない</span></summary>
