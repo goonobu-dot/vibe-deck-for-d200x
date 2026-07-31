@@ -141,12 +141,69 @@ async function readTail(file: string): Promise<string> {
 type Parsed = {
   state: Exclude<AgentState, "empty">;
   title: string;
+  /** needs_input のみ: 末尾 assistant tool_use の要約（最大30字）. */
+  detail?: string;
 };
 
-function inferFromLines(lines: string[], fallbackTitle: string): Parsed {
+const DETAIL_MAX_CHARS = 30;
+
+/** Input keys most likely to describe what a tool call is about to do. */
+const SUMMARY_KEYS = [
+  "command",
+  "file_path",
+  "path",
+  "url",
+  "pattern",
+  "prompt",
+  "description",
+  "query",
+] as const;
+
+/**
+ * Summarize one tool_use as "ツール名: 入力要約", truncated to 30 chars
+ * (code points, so surrogate pairs never get split). Exported for tests.
+ */
+export function summarizeToolUse(name: string, input: unknown): string {
+  const obj =
+    input && typeof input === "object"
+      ? (input as Record<string, unknown>)
+      : {};
+  let summary = "";
+  // AskUserQuestion carries the question text itself — prefer it.
+  const questions = obj.questions;
+  if (Array.isArray(questions) && questions[0] && typeof questions[0] === "object") {
+    const q = (questions[0] as Record<string, unknown>).question;
+    if (typeof q === "string") summary = q;
+  }
+  if (!summary) {
+    for (const key of SUMMARY_KEYS) {
+      const v = obj[key];
+      if (typeof v === "string" && v.trim()) {
+        summary = v;
+        break;
+      }
+    }
+  }
+  if (!summary) {
+    for (const v of Object.values(obj)) {
+      if (typeof v === "string" && v.trim()) {
+        summary = v;
+        break;
+      }
+    }
+  }
+  const clean = summary.replace(/\s+/g, " ").trim();
+  const base = clean ? `${name}: ${clean}` : name;
+  const chars = [...base];
+  if (chars.length <= DETAIL_MAX_CHARS) return base;
+  return chars.slice(0, DETAIL_MAX_CHARS - 1).join("") + "…";
+}
+
+export function inferFromLines(lines: string[], fallbackTitle: string): Parsed {
   let state: Exclude<AgentState, "empty"> = "idle";
   let title = fallbackTitle;
   let saw = false;
+  let lastToolUse: { name: string; input: unknown } | null = null;
 
   for (const line of lines) {
     let obj: Record<string, unknown>;
@@ -185,15 +242,21 @@ function inferFromLines(lines: string[], fallbackTitle: string): Parsed {
           .filter((c): c is Record<string, unknown> => !!c && typeof c === "object")
           .map((c) => String(c.type || ""))
       : [];
-    const toolNames = Array.isArray(content)
+    const toolUses = Array.isArray(content)
       ? content
           .filter((c): c is Record<string, unknown> => !!c && typeof c === "object")
           .filter((c) => c.type === "tool_use")
-          .map((c) => String(c.name || ""))
       : [];
+    const toolNames = toolUses.map((c) => String(c.name || ""));
 
     if (type === "assistant") {
       saw = true;
+      // Remember the trailing assistant's last tool_use — needs_input detail.
+      // A tool-less assistant line clears it (the approval is no longer live).
+      const lastUse = toolUses[toolUses.length - 1];
+      lastToolUse = lastUse
+        ? { name: String(lastUse.name || ""), input: lastUse.input }
+        : null;
       if (
         toolNames.some((n) => /AskUserQuestion|AskUser|Permission/i.test(n))
       ) {
@@ -225,6 +288,13 @@ function inferFromLines(lines: string[], fallbackTitle: string): Parsed {
   }
 
   if (!saw) state = "idle";
+  if (state === "needs_input" && lastToolUse?.name) {
+    return {
+      state,
+      title,
+      detail: summarizeToolUse(lastToolUse.name, lastToolUse.input),
+    };
+  }
   return { state, title };
 }
 
@@ -337,6 +407,10 @@ async function parseGroupedSessions(): Promise<RawAgent[]> {
       state,
       updatedAt: g.mtime,
       focusAction: { kind: "activate_app", payload: "Claude" },
+      // Aging can demote needs_input → idle; the detail must not outlive it.
+      ...(state === "needs_input" && parsed.detail
+        ? { detail: parsed.detail }
+        : {}),
     });
   }
   return agents;

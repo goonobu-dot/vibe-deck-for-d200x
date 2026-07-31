@@ -48,6 +48,7 @@ export function assignSlots(
       state: agent.state,
       updatedAt: agent.updatedAt,
       focusAction: agent.focusAction,
+      ...(agent.detail ? { detail: agent.detail } : {}),
     });
   }
 

@@ -1,0 +1,296 @@
+#!/usr/bin/env python3
+"""Vibe Deck — lane card renderer (Phase B, resident daemon).
+
+Protocol (line oriented, one request per line):
+  stdin : {"state": "thinking", "title": "セッション名", "elapsed": 12,
+           "detail": "Bash: git push", "frames": "pop"}
+  stdout: <base64 PNG or GIF> on success (single line),
+          {"error": "..."} JSON on bad input (single line).
+
+The daemon NEVER exits on bad input — every request is answered.
+It exits only on EOF / broken stdout (parent died).
+
+Animated states ship as looping 2-frame GIFs (Studio type:3), static
+states as PNG (Studio type:1). The caller detects the format from the
+base64 prefix ("R0lGOD" = GIF, "iVBORw" = PNG).
+
+Card design follows scripts/generate-icons.py: dark slate card, the
+Phase A state palette as a top status bar, Japanese-capable fonts.
+"""
+
+from __future__ import annotations
+
+import base64
+import io
+import json
+import sys
+from pathlib import Path
+
+try:
+    from PIL import Image, ImageDraw, ImageFont
+except ImportError:  # pragma: no cover — install.sh installs Pillow
+    sys.stdout.write(json.dumps({"error": "pillow_not_installed"}) + "\n")
+    sys.stdout.flush()
+    sys.exit(1)
+
+SIZE = 144
+
+# --- palette (matches generate-icons.py THEMES / ANIM_THEMES) ---------------
+CARD_BG = (26, 32, 44)          # dark slate card body
+CARD_EDGE = (255, 255, 255, 30)
+TITLE_FG = (235, 238, 245)
+TITLE_FG_DIM = (150, 158, 172)
+DETAIL_FG = (253, 230, 138)     # amber — approval detail
+DETAIL_FG_DIM = (128, 104, 62)
+
+STATES = {
+    #  key          bar color        bar text         label     animate
+    "idle":        {"bar": (148, 163, 184), "bar_fg": (30, 35, 45),   "label": "IDLE"},
+    "thinking":    {"bar": (37, 99, 235),   "bar_fg": (255, 255, 255), "label": "THINK"},
+    "done":        {"bar": (22, 163, 74),   "bar_fg": (255, 255, 255), "label": "DONE"},
+    "needs_input": {"bar": (245, 158, 11),  "bar_fg": (255, 255, 255), "label": "INPUT"},
+    "error":       {"bar": (239, 68, 68),   "bar_fg": (255, 255, 255), "label": "ERROR"},
+    "empty":       {"bar": (58, 58, 62),    "bar_fg": (190, 190, 196), "label": "READY"},
+}
+# Dim variants for the 2nd animation frame (breathing / blink-off).
+DIM_BAR = {
+    "thinking": (16, 44, 106),
+    "needs_input": (110, 71, 5),
+}
+
+THINKING_FRAME_MS = 800   # half of the Phase A 1600ms breathing period
+NEEDS_INPUT_FRAME_MS = 250  # half of the Phase A 500ms blink period
+POP_FRAME_MS = 600
+POP_REST_MS = 1400
+
+MAX_TITLE_LINES = 2
+MAX_DETAIL_LINES = 2
+MAX_INPUT_CHARS = 200  # defensive clamp on every incoming string
+
+FONT_PATHS = [
+    Path("/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc"),
+    Path("/System/Library/Fonts/Hiragino Sans GB.ttc"),
+    Path("/System/Library/Fonts/Supplemental/Arial Unicode.ttf"),
+]
+
+_font_cache: dict[int, ImageFont.FreeTypeFont | ImageFont.ImageFont] = {}
+
+
+def load_font(size: int):
+    cached = _font_cache.get(size)
+    if cached is not None:
+        return cached
+    font: ImageFont.FreeTypeFont | ImageFont.ImageFont | None = None
+    for path in FONT_PATHS:
+        if path.exists():
+            try:
+                font = ImageFont.truetype(str(path), size=size, index=0)
+                break
+            except OSError:
+                continue
+    if font is None:
+        font = ImageFont.load_default()
+    _font_cache[size] = font
+    return font
+
+
+def text_width(draw: ImageDraw.ImageDraw, text: str, font) -> float:
+    try:
+        return draw.textlength(text, font=font)
+    except (AttributeError, TypeError):  # very old Pillow / bitmap font
+        bbox = draw.textbbox((0, 0), text, font=font)
+        return bbox[2] - bbox[0]
+
+
+def wrap_text(
+    draw: ImageDraw.ImageDraw, text: str, font, max_width: int, max_lines: int
+) -> list[str]:
+    """Greedy per-character wrap (works for CJK, no word boundaries needed)."""
+    lines: list[str] = []
+    current = ""
+    for ch in text:
+        if ch in "\r\n":
+            ch = " "
+        candidate = current + ch
+        if text_width(draw, candidate, font) <= max_width:
+            current = candidate
+            continue
+        lines.append(current)
+        current = ch
+        if len(lines) == max_lines:
+            break
+    if len(lines) < max_lines and current:
+        lines.append(current)
+    if not lines:
+        return []
+    # Did everything fit? If not, ellipsize the last kept line.
+    consumed = sum(len(l) for l in lines)
+    if consumed < len(text.replace("\r", " ").replace("\n", " ")) or len(lines) > max_lines:
+        lines = lines[:max_lines]
+        last = lines[-1]
+        while last and text_width(draw, last + "…", font) > max_width:
+            last = last[:-1]
+        lines[-1] = last + "…"
+    return lines[:max_lines]
+
+
+def format_elapsed(minutes: int) -> str:
+    if minutes < 60:
+        return f"{minutes}m"
+    hours, rest = divmod(minutes, 60)
+    return f"{hours}h{rest:02d}m"
+
+
+def draw_card(
+    state: str,
+    title: str,
+    elapsed_min: int,
+    detail: str,
+    *,
+    bar_override: tuple[int, int, int] | None = None,
+    dim_body: bool = False,
+    pop_check: bool = False,
+) -> Image.Image:
+    """Render one card frame. Flattened to RGB (opaque, GIF-safe)."""
+    spec = STATES[state]
+    bar = bar_override or spec["bar"]
+
+    img = Image.new("RGB", (SIZE, SIZE), (0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    # card body
+    draw.rounded_rectangle((0, 0, SIZE - 1, SIZE - 1), radius=22, fill=CARD_BG)
+    # top status bar (rounded top corners, square bottom edge)
+    draw.rounded_rectangle((0, 0, SIZE - 1, 43), radius=22, fill=bar)
+    draw.rectangle((0, 24, SIZE - 1, 38), fill=bar)
+
+    bar_font = load_font(17)
+    draw.text((10, 10), spec["label"], font=bar_font, fill=spec["bar_fg"])
+    elapsed_text = format_elapsed(elapsed_min)
+    ew = text_width(draw, elapsed_text, bar_font)
+    draw.text((SIZE - 10 - ew, 10), elapsed_text, font=bar_font, fill=spec["bar_fg"])
+
+    # session title — up to 2 lines, Japanese OK
+    title_font = load_font(20)
+    title_fg = TITLE_FG_DIM if dim_body else TITLE_FG
+    y = 48
+    for line in wrap_text(draw, title, title_font, SIZE - 20, MAX_TITLE_LINES):
+        draw.text((10, y), line, font=title_font, fill=title_fg)
+        y += 26
+
+    # approval detail — needs_input only (amber, up to 2 lines)
+    if state == "needs_input" and detail:
+        detail_font = load_font(15)
+        detail_fg = DETAIL_FG_DIM if dim_body else DETAIL_FG
+        y = 102
+        for line in wrap_text(draw, detail, detail_font, SIZE - 20, MAX_DETAIL_LINES):
+            draw.text((10, y), line, font=detail_font, fill=detail_fg)
+            y += 19
+
+    if pop_check:
+        # done-pop: oversized check across the body (same stroke as icons)
+        base = [(40, 78), (64, 100), (112, 52)]
+        draw.line(base, fill=(134, 239, 172), width=13, joint="curve")
+
+    # subtle outer edge
+    edge = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
+    ed = ImageDraw.Draw(edge)
+    ed.rounded_rectangle((1, 1, SIZE - 2, SIZE - 2), radius=21, outline=CARD_EDGE, width=2)
+    return Image.alpha_composite(img.convert("RGBA"), edge).convert("RGB")
+
+
+def encode_png(img: Image.Image) -> str:
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode("ascii")
+
+
+def encode_gif(frames: list[Image.Image], durations: list[int]) -> str:
+    buf = io.BytesIO()
+    frames[0].save(
+        buf,
+        format="GIF",
+        save_all=True,
+        append_images=frames[1:],
+        duration=durations,
+        loop=0,
+        disposal=1,
+    )
+    return base64.b64encode(buf.getvalue()).decode("ascii")
+
+
+def clamp_str(value: object) -> str:
+    if not isinstance(value, str):
+        return ""
+    return value.strip()[:MAX_INPUT_CHARS]
+
+
+def clamp_elapsed(value: object) -> int:
+    try:
+        n = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return 0
+    return max(0, min(n, 99 * 60 + 59))
+
+
+def render_request(req: dict) -> str:
+    state = clamp_str(req.get("state"))
+    if state not in STATES:
+        raise ValueError(f"unknown state: {state or '(empty)'}")
+    title = clamp_str(req.get("title"))
+    detail = clamp_str(req.get("detail"))
+    elapsed = clamp_elapsed(req.get("elapsed"))
+    frames_hint = clamp_str(req.get("frames"))
+
+    if state == "thinking":
+        bright = draw_card(state, title, elapsed, detail)
+        dim = draw_card(
+            state, title, elapsed, detail,
+            bar_override=DIM_BAR["thinking"], dim_body=True,
+        )
+        return encode_gif([bright, dim], [THINKING_FRAME_MS, THINKING_FRAME_MS])
+
+    if state == "needs_input":
+        on = draw_card(state, title, elapsed, detail)
+        off = draw_card(
+            state, title, elapsed, detail,
+            bar_override=DIM_BAR["needs_input"], dim_body=True,
+        )
+        return encode_gif([on, off], [NEEDS_INPUT_FRAME_MS, NEEDS_INPUT_FRAME_MS])
+
+    if state == "done" and frames_hint == "pop":
+        pop = draw_card(state, title, elapsed, detail, pop_check=True)
+        rest = draw_card(state, title, elapsed, detail)
+        return encode_gif([pop, rest], [POP_FRAME_MS, POP_REST_MS])
+
+    return encode_png(draw_card(state, title, elapsed, detail))
+
+
+def respond(line: str) -> None:
+    sys.stdout.write(line + "\n")
+    sys.stdout.flush()
+
+
+def main() -> int:
+    for raw in sys.stdin:
+        raw = raw.strip()
+        if not raw:
+            continue
+        try:
+            req = json.loads(raw)
+            if not isinstance(req, dict):
+                raise ValueError("request must be a JSON object")
+            respond(render_request(req))
+        except BrokenPipeError:
+            return 0  # parent is gone — nothing left to serve
+        except Exception as exc:  # noqa: BLE001 — daemon must never die on input
+            try:
+                respond(json.dumps({"error": str(exc)[:200]}, ensure_ascii=False))
+            except BrokenPipeError:
+                return 0
+            except Exception:  # noqa: BLE001 — last-resort: keep serving
+                print("lane-renderer: failed to write error", file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

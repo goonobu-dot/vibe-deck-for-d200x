@@ -22,6 +22,8 @@ export interface AgentSnapshot {
   state: AgentState;
   updatedAt: number;
   focusAction?: FocusAction;
+  /** needs_input のみ: 承認待ち内容の要約（"ツール名: 入力要約" 最大30字）. */
+  detail?: string;
 }
 
 /** Pre-slot agent reported by an adapter (slot assigned later). */
@@ -31,6 +33,8 @@ export interface RawAgent {
   state: Exclude<AgentState, "empty">;
   updatedAt: number;
   focusAction?: FocusAction;
+  /** needs_input のみ: 承認待ち内容の要約（"ツール名: 入力要約" 最大30字）. */
+  detail?: string;
 }
 
 export interface StatusPayload {

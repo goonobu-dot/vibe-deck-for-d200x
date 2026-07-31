@@ -9,6 +9,7 @@ const { spawn, execFile } = require("child_process");
 const WebSocket = require("ws");
 const verbs = require("./verbs.js");
 const frames = require("./frames.js");
+const lanecards = require("./lanecards.js");
 
 const PLUGIN_UUID = "com.vibe.deck.status";
 const BRIDGE = process.env.VIBE_DECK_BRIDGE || "http://127.0.0.1:17823";
@@ -402,6 +403,12 @@ const lastKeyState = new Map();
 const lastLogicalState = new Map();
 /** Time (ms) each agent key transitioned INTO done — drives the pop frame. @type {Map<string, number>} */
 const doneAt = new Map();
+/** Time (ms) each agent key entered its CURRENT logical state (経過時間表示用). @type {Map<string, number>} */
+const stateSince = new Map();
+/** Last dynamic-card content key per agent key (差分レンダの基準). @type {Map<string, string>} */
+const lastCardKey = new Map();
+/** Agent keys currently showing a dynamic card (フォールバック時の強制再描画対象). @type {Set<string>} */
+const cardActive = new Set();
 /** Registered verb keys (guard-blocked flash targets). @type {Map<string, any>} */
 const verbKeys = new Map();
 let paintInFlight = false;
@@ -412,6 +419,9 @@ function forgetAgentKey(id) {
   lastKeyState.delete(id);
   lastLogicalState.delete(id);
   doneAt.delete(id);
+  stateSince.delete(id);
+  lastCardKey.delete(id);
+  cardActive.delete(id);
 }
 
 /** Record a verb key registration so guard feedback can flash the right tile. */
@@ -487,6 +497,305 @@ function item(meta, state) {
 // Boot wave: after (re)registration the lanes light up slot by slot.
 const BOOT_WAVE_STEP_MS = 80;
 
+// ---------------------------------------------------------------------------
+// Phase B — dynamic lane cards (plan.md「Phase B — 動的レーンカード」)
+// ---------------------------------------------------------------------------
+
+/** Master switch: false = Phase A frames only (fallback path stays live). */
+const ENABLE_LANE_CARDS = true;
+/** A render taking longer than this counts as a dead renderer (spec: 2s). */
+const LANE_RENDER_TIMEOUT_MS = 2000;
+/** Backoff before respawning a dead renderer (spec: 30s). */
+const LANE_RENDERER_RESPAWN_MS = 30000;
+
+/**
+ * Resident Pillow renderer (scripts/lane-renderer.py) over stdin/stdout.
+ * One JSON request line in → one base64 (or {"error":...}) line out.
+ * Strictly single-flight: a timeout kills the process (a late reply would
+ * desync the request/response pairing) and schedules a 30s-backoff respawn.
+ * Every failure path resolves null so paint() can fall back to Phase A.
+ */
+class LaneRenderer {
+  constructor() {
+    this.proc = null;
+    this.buf = "";
+    this.pending = null; // { resolve, timer }
+    this.blockedUntil = 0;
+    this.missingLogged = false;
+  }
+
+  /** Locate lane-renderer.py at runtime (deployed copy first, then repo). */
+  resolveScript() {
+    const candidates = [
+      process.env.VIBE_DECK_LANE_RENDERER,
+      path.join(__dirname, "lane-renderer.py"),
+      path.join(__dirname, "..", "..", "..", "scripts", "lane-renderer.py"),
+    ];
+    for (const c of candidates) {
+      try {
+        if (c && fs.existsSync(c)) return c;
+      } catch {
+        // ignore — treat as missing
+      }
+    }
+    return null;
+  }
+
+  /** Can a request be served right now (alive, or spawnable outside backoff)? */
+  available() {
+    if (!ENABLE_LANE_CARDS) return false;
+    if (this.proc) return true;
+    if (Date.now() < this.blockedUntil) return false;
+    const found = this.resolveScript() !== null;
+    if (!found && !this.missingLogged) {
+      this.missingLogged = true;
+      log("lane-renderer script not found — Phase A frames only");
+    }
+    return found;
+  }
+
+  /** Spawn if needed. Returns true when a live process is ready. */
+  ensure() {
+    if (this.proc) return true;
+    if (Date.now() < this.blockedUntil) return false;
+    const script = this.resolveScript();
+    if (!script) {
+      this.block("script not found");
+      return false;
+    }
+    try {
+      const proc = spawn("python3", [script], {
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+      this.proc = proc;
+      this.buf = "";
+      // An unhandled stream "error" (EPIPE on a dying renderer) would crash
+      // the whole plugin — swallow it; proc "exit" drives the real cleanup.
+      proc.stdin.on("error", (err) =>
+        log("lane-renderer stdin error", String(err)),
+      );
+      proc.stdout.setEncoding("utf8");
+      proc.stdout.on("data", (chunk) => this.onData(proc, chunk));
+      proc.stderr.on("data", (chunk) =>
+        log("lane-renderer stderr", String(chunk).trim().slice(0, 300)),
+      );
+      proc.on("error", (err) => this.onDeath(proc, `spawn error: ${err}`));
+      proc.on("exit", (code, signal) =>
+        this.onDeath(proc, `exit code=${code} signal=${signal}`),
+      );
+      log("lane-renderer spawned", script, "pid", proc.pid);
+      return true;
+    } catch (err) {
+      this.block(`spawn threw: ${err}`);
+      return false;
+    }
+  }
+
+  block(reason) {
+    this.blockedUntil = Date.now() + LANE_RENDERER_RESPAWN_MS;
+    log("lane-renderer blocked 30s:", reason);
+  }
+
+  onDeath(proc, reason) {
+    if (this.proc !== proc) return; // stale event from an already-replaced proc
+    this.proc = null;
+    this.buf = "";
+    this.finishPending(null);
+    this.block(reason);
+  }
+
+  onData(proc, chunk) {
+    if (this.proc !== proc) return;
+    this.buf += chunk;
+    let nl;
+    while ((nl = this.buf.indexOf("\n")) >= 0) {
+      const line = this.buf.slice(0, nl);
+      this.buf = this.buf.slice(nl + 1);
+      if (this.pending) {
+        this.finishPending(line);
+      } else if (line.trim()) {
+        log("lane-renderer unexpected reply dropped", line.slice(0, 60));
+      }
+    }
+  }
+
+  finishPending(value) {
+    const pending = this.pending;
+    if (!pending) return;
+    this.pending = null;
+    clearTimeout(pending.timer);
+    pending.resolve(value);
+  }
+
+  /** Kill the process (timeout / desync) and enter the respawn backoff. */
+  kill(reason) {
+    const proc = this.proc;
+    this.proc = null;
+    this.buf = "";
+    this.finishPending(null);
+    this.block(reason);
+    if (proc) {
+      try {
+        proc.kill();
+      } catch (err) {
+        log("lane-renderer kill failed", String(err));
+      }
+    }
+  }
+
+  /**
+   * Render one card. Resolves the raw stdout line, or null on any failure
+   * (dead renderer, busy, timeout, write error) — callers fall back to frames.
+   */
+  request(payload) {
+    if (!this.ensure()) return Promise.resolve(null);
+    if (this.pending) {
+      log("lane-renderer busy, dropping request");
+      return Promise.resolve(null);
+    }
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.pending = null;
+        resolve(null);
+        this.kill(`no reply in ${LANE_RENDER_TIMEOUT_MS}ms`);
+      }, LANE_RENDER_TIMEOUT_MS);
+      this.pending = { resolve, timer };
+      try {
+        this.proc.stdin.write(`${JSON.stringify(payload)}\n`);
+      } catch (err) {
+        this.finishPending(null);
+        this.kill(`stdin write failed: ${err}`);
+      }
+    });
+  }
+}
+
+const laneRenderer = new LaneRenderer();
+
+/** Drop all card bookkeeping so the next paint redraws from scratch. */
+function resetCardState() {
+  lastCardKey.clear();
+  cardActive.clear();
+}
+
+/**
+ * Phase A behavior for a single lane while cards are unavailable for it.
+ * Also evicts any stale card so the frame actually overwrites the tile.
+ */
+function paintFrameFallback(meta, logical, now) {
+  if (cardActive.delete(meta.actionid)) {
+    lastCardKey.delete(meta.actionid);
+    lastKeyState.delete(meta.actionid);
+  }
+  const frame = frames.frameFor(logical, now, doneAt.get(meta.actionid));
+  if (lastKeyState.get(meta.actionid) !== frame) {
+    client.setState([item(meta, frame)]);
+    lastKeyState.set(meta.actionid, frame);
+  }
+}
+
+/**
+ * Phase A frame painting for one tool (boot wave + frame diff), unchanged
+ * behavior from before Phase B. `lanes` = [{ meta, agent, logical }].
+ */
+async function paintToolFrames(tool, lanes, now) {
+  const changed = [];
+  const labels = [];
+  for (const { meta, logical } of lanes) {
+    // Falling back from card mode: force a frame send over the stale card.
+    if (cardActive.delete(meta.actionid)) {
+      lastCardKey.delete(meta.actionid);
+      lastKeyState.delete(meta.actionid);
+    }
+    const frame = frames.frameFor(logical, now, doneAt.get(meta.actionid));
+    const prevFrame = lastKeyState.get(meta.actionid);
+    labels.push(STATE_LABEL[logical] || "?");
+    // Diff on the frame index: animated states re-send only when their
+    // frame flips; static states stay silent — no constant traffic.
+    if (prevFrame !== frame || needsEmptyFlash) {
+      changed.push({ meta, state: frame });
+      lastKeyState.set(meta.actionid, frame);
+    }
+  }
+  if (!changed.length) return;
+
+  if (needsEmptyFlash) {
+    // Boot wave: everything to empty, then light lanes slot by slot.
+    needsEmptyFlash = false;
+    const ordered = [...changed].sort(
+      (a, b) => (a.meta.slot || 0) - (b.meta.slot || 0),
+    );
+    client.setState(ordered.map((t) => item(t.meta, STATE_INDEX.empty)));
+    for (const t of ordered) {
+      await sleep(BOOT_WAVE_STEP_MS);
+      client.setState([item(t.meta, t.state)]);
+    }
+    log("boot wave", tool, `${ordered.length}keys`, labels.join(""));
+    return;
+  }
+  client.setState(changed.map((t) => item(t.meta, t.state)));
+  log("painted", tool, `${changed.length}keys`, labels.join(""));
+}
+
+/**
+ * Phase B card painting for one tool. Re-renders a lane only when its
+ * content key (tool|slot|state|title|elapsed-min|detail|pop) changed; any
+ * render failure degrades that lane to Phase A frames for this pass.
+ */
+async function paintToolCards(tool, lanes, now) {
+  const sent = [];
+  for (const { meta, agent, logical } of lanes) {
+    if (!lanecards.isRenderableState(logical)) {
+      paintFrameFallback(meta, logical, now);
+      continue;
+    }
+    const title = typeof agent.title === "string" ? agent.title : "";
+    const detail = typeof agent.detail === "string" ? agent.detail : "";
+    const pop = lanecards.wantsPop(logical, now, doneAt.get(meta.actionid));
+    const elapsedMin = lanecards.elapsedMinutes(
+      now,
+      stateSince.get(meta.actionid),
+    );
+    const contentKey = lanecards.buildContentKey({
+      tool,
+      slot: meta.slot,
+      state: logical,
+      title,
+      elapsedMin,
+      detail,
+      pop,
+    });
+    if (lastCardKey.get(meta.actionid) === contentKey) continue;
+
+    const reply = await laneRenderer.request(
+      lanecards.buildRenderRequest({
+        state: logical,
+        title,
+        elapsedMin,
+        detail,
+        pop,
+      }),
+    );
+    const parsed =
+      reply === null
+        ? { ok: false, error: "renderer unavailable" }
+        : lanecards.parseRendererLine(reply);
+    if (!parsed.ok) {
+      log("lane card render failed", `slot=${meta.slot}`, parsed.error);
+      paintFrameFallback(meta, logical, now);
+      continue;
+    }
+    client.setState([lanecards.buildCardItem(meta, parsed.format, parsed.data)]);
+    lastCardKey.set(meta.actionid, contentKey);
+    cardActive.add(meta.actionid);
+    // The card owns the tile now — drop the frame diff so a later fallback
+    // (or blink) is guaranteed to repaint instead of assuming its old frame.
+    lastKeyState.delete(meta.actionid);
+    sent.push(`${meta.slot}:${logical}${parsed.format === "gif" ? "*" : ""}`);
+  }
+  if (sent.length) log("painted cards", tool, sent.join(" "));
+}
+
 async function paint() {
   if (!keys.size || paintInFlight) return;
   paintInFlight = true;
@@ -504,8 +813,8 @@ async function paint() {
       }
       const agents = status.agents || [];
       const now = Date.now();
-      const changed = [];
-      const labels = [];
+      /** @type {{ meta: any, agent: any, logical: string }[]} */
+      const lanes = [];
       for (const meta of keys.values()) {
         if (meta.tool !== tool) continue;
         const agent = agents.find((a) => a.slot === meta.slot) || {
@@ -513,48 +822,28 @@ async function paint() {
         };
         const logical =
           typeof agent.state === "string" ? agent.state : "empty";
-        // Track the moment a lane ENTERS done — drives the 600ms pop frame.
         const prevLogical = lastLogicalState.get(meta.actionid);
+        // Track when the lane entered its current state (経過時間の起点).
+        if (logical !== prevLogical) {
+          stateSince.set(meta.actionid, now);
+        }
+        // Track the moment a lane ENTERS done — drives the pop frame/GIF.
         if (logical === "done" && prevLogical !== "done") {
           doneAt.set(meta.actionid, now);
         } else if (logical !== "done") {
           doneAt.delete(meta.actionid);
         }
         lastLogicalState.set(meta.actionid, logical);
-
-        const frame = frames.frameFor(logical, now, doneAt.get(meta.actionid));
-        const prevFrame = lastKeyState.get(meta.actionid);
-        labels.push(STATE_LABEL[logical] || "?");
-        // Diff on the frame index: animated states re-send only when their
-        // frame flips; static states stay silent — no constant traffic.
-        if (prevFrame !== frame || needsEmptyFlash) {
-          changed.push({ meta, state: frame });
-          lastKeyState.set(meta.actionid, frame);
-        }
+        lanes.push({ meta, agent, logical });
       }
-      if (!changed.length) continue;
+      if (!lanes.length) continue;
 
-      if (needsEmptyFlash) {
-        // Boot wave: everything to empty, then light lanes slot by slot.
-        needsEmptyFlash = false;
-        const ordered = [...changed].sort(
-          (a, b) => (a.meta.slot || 0) - (b.meta.slot || 0),
-        );
-        client.setState(ordered.map((t) => item(t.meta, STATE_INDEX.empty)));
-        for (const t of ordered) {
-          await sleep(BOOT_WAVE_STEP_MS);
-          client.setState([item(t.meta, t.state)]);
-        }
-        log("boot wave", tool, `${ordered.length}keys`, labels.join(""));
-        continue;
+      // Boot wave always runs on Phase A frames; cards take over next tick.
+      if (!needsEmptyFlash && laneRenderer.available()) {
+        await paintToolCards(tool, lanes, now);
+      } else {
+        await paintToolFrames(tool, lanes, now);
       }
-      client.setState(changed.map((t) => item(t.meta, t.state)));
-      log(
-        "painted",
-        tool,
-        `${changed.length}keys`,
-        labels.join(""),
-      );
     }
   } finally {
     paintInFlight = false;
@@ -766,8 +1055,11 @@ async function blinkLane(meta) {
     client.setState([item(meta, restore)]);
     await sleep(150);
   }
-  // Force a repaint so the tile settles on the true bridge state.
+  // Force a repaint so the tile settles on the true bridge state
+  // (frame mode AND card mode — the blink overwrote any dynamic card).
   lastKeyState.delete(meta.actionid);
+  lastCardKey.delete(meta.actionid);
+  cardActive.delete(meta.actionid);
 }
 
 /** Rotate handler for dial.lane: select lane, blink it, notify session name. */
@@ -922,6 +1214,7 @@ client.on("run", async (msg) => {
   if (handleNavAction(action, msg)) return;
   if (a.includes("refresh")) {
     lastKeyState.clear();
+    resetCardState();
     needsEmptyFlash = true;
     await paint();
     return;

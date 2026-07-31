@@ -154,11 +154,17 @@ Claude Code / Codex / Cursor の3ツールで**操作端を完全共通化**す�
 - ガードフィードバック: verb ブロック時に afplay で警告音＋（実験）verb キーの blocked ステート点滅。ステート復元が不安定なら音のみに落とす
 - アイコンは generate-icons.py に追記生成。QA: テスト全パス＋実機で各アニメ確認
 
-### Phase B — 動的レーンカード（要プロトコル検証）
+### Phase B — 動的レーンカード（検証済み: 公式プロトコルで実装可）
 
-- 検証: Ulanzi WS に動的画像送信（setImage/base64 等）が存在するか（SDK・公式プラグイン実装を調査→実機プローブ）
-- 可なら: レーンに セッション名/経過時間/承認内容（橙時は「Bash: git push」等）を Pillow でオンザフライ描画して表示
-- 不可なら: 代替案（1セッション2キー構成）を再提案
+**確定したワイヤ形式**（公式 plugin-common-node の実装より）: 既存 `state` コマンドの statelist 要素で
+- 静止画: `{ uuid, key, actionid, type: 1, data: <base64 PNG>, textData: "", showtext: false }`
+- **GIFアニメ: `{ ..., type: 3, gifdata: <base64 GIF> }`**（Studio 側がループ再生）
+
+**実装方針（GIF主軸）**:
+1. レンダラ: `scripts/lane-renderer.py`（Pillow・**常駐デーモン**。stdin に JSON 1行 `{state,title,elapsed,detail,frames}` → stdout に base64 1行）。カード描画: 上部に状態色バー、状態ラベル、セッション名（最大2行・省略記号）、経過時間、橙時は detail（承認内容）。**thinking=呼吸2コマ / needs_input=点滅2コマの ループGIF**、done遷移=ポップ→通常のGIF（ループ1回相当は不可のため2コマ短周期でも可）、idle/done/error/empty=静止PNG
+2. plugin.js: レーンのコンテンツキー（state+title+elapsed分+detail）が変わったときだけレンダラに依頼し、type:3/type:1 で送信。レンダラ死亡時は**現行のフレーム式（Phase A）へ自動フォールバック**。経過時間の再レンダは1分粒度
+3. bridge: claude アダプタが needs_input のとき、transcript 末尾の tool_use から `detail`（例 "Bash: git push"、ツール名＋要約 最大30字）を抽出して agent に付与。全ツールの agent に `startedAt`（現ターン開始推定）を追加できれば経過時間の質が上がる（できる範囲で）
+4. QA: レンダラ単体テスト（フィクスチャJSON→PNG/GIF生成・寸法・フレーム数検証）、plugin はコンテンツキー差分ロジックの単体テスト、実機確認はリーダー
 
 ### Phase C — Web ダッシュボード
 
