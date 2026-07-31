@@ -288,7 +288,10 @@ export function inferFromLines(lines: string[], fallbackTitle: string): Parsed {
   }
 
   if (!saw) state = "idle";
-  if (state === "needs_input" && lastToolUse?.name) {
+  // Keep the pending tool_use summary for thinking too: a Notification-hook
+  // event can flip thinking → needs_input at the server layer, and the card
+  // then needs to say what is awaiting approval.
+  if ((state === "needs_input" || state === "thinking") && lastToolUse?.name) {
     return {
       state,
       title,
@@ -407,8 +410,8 @@ async function parseGroupedSessions(): Promise<RawAgent[]> {
       state,
       updatedAt: g.mtime,
       focusAction: { kind: "activate_app", payload: "Claude" },
-      // Aging can demote needs_input → idle; the detail must not outlive it.
-      ...(state === "needs_input" && parsed.detail
+      // Aging can demote to idle; the detail must not outlive activity.
+      ...((state === "needs_input" || state === "thinking") && parsed.detail
         ? { detail: parsed.detail }
         : {}),
     });

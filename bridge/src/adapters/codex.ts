@@ -8,9 +8,47 @@ import type { AdapterResult, ToolAdapter } from "./types.js";
 
 const CODEX_HOME = process.env.CODEX_HOME || join(homedir(), ".codex");
 const SESSIONS = join(CODEX_HOME, "sessions");
+/** Maps session id → thread_name; the in-file name event sits at the head of
+ * huge rollouts where the tail read misses it, so this index is authoritative. */
+const SESSION_INDEX = join(CODEX_HOME, "session_index.jsonl");
 /** Codex desktop / CLI sessions grow large — only need the recent tail. */
 const TAIL_BYTES = 512_000;
 const TAIL_LINES = 80;
+
+let indexCache: { mtime: number; names: Map<string, string> } | null = null;
+
+async function threadNames(): Promise<Map<string, string>> {
+  try {
+    const st = await stat(SESSION_INDEX);
+    if (indexCache && indexCache.mtime === st.mtimeMs) return indexCache.names;
+    const fh = await open(SESSION_INDEX, "r");
+    let text: string;
+    try {
+      text = (await fh.readFile()).toString("utf8");
+    } finally {
+      await fh.close();
+    }
+    const names = new Map<string, string>();
+    for (const line of text.split(/\n+/)) {
+      if (!line.trim()) continue;
+      try {
+        const o = JSON.parse(line) as Record<string, unknown>;
+        const id = String(o.id || "");
+        const name = typeof o.thread_name === "string" ? o.thread_name : "";
+        if (id && name) names.set(id, name.slice(0, 40));
+      } catch {
+        // ignore malformed lines
+      }
+    }
+    indexCache = { mtime: st.mtimeMs, names };
+    return names;
+  } catch {
+    return indexCache?.names ?? new Map();
+  }
+}
+
+const UUID_RE =
+  /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
 
 let watchBooted = false;
 let watcher: FSWatcher | null = null;
@@ -177,6 +215,11 @@ async function parseSession(
   let title = ts
     ? `${Number(ts[2])}/${Number(ts[3])} ${ts[4]}:${ts[5]}`
     : raw.slice(0, 36);
+  const sessionId = raw.match(UUID_RE)?.[1]?.toLowerCase();
+  if (sessionId) {
+    const named = (await threadNames()).get(sessionId);
+    if (named) title = named;
+  }
   let sawEvent = false;
 
   for (const line of lines) {

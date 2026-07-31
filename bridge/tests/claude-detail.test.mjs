@@ -77,7 +77,7 @@ test("detail is capped at 30 chars with an ellipsis", () => {
   assert.ok(parsed.detail.endsWith("…"));
 });
 
-test("non-needs_input states never carry a detail", () => {
+test("thinking keeps the pending tool_use detail (hook may flip it to needs_input)", () => {
   const thinking = inferFromLines(
     [
       assistantLine({
@@ -90,7 +90,7 @@ test("non-needs_input states never carry a detail", () => {
     "fallback",
   );
   assert.equal(thinking.state, "thinking");
-  assert.equal(thinking.detail, undefined);
+  assert.equal(thinking.detail, "Bash: ls");
 
   const done = inferFromLines(
     [

@@ -439,6 +439,8 @@ function rememberVerbKey(actionid, msg, param) {
     uuid: "com.vibe.deck.status.verb",
     device: msg.device,
     controller: msg.controller,
+    verb: String(param.verb || param.Verb || "").toLowerCase(),
+    tool: String(param.tool || param.Tool || "").toLowerCase(),
   });
   log("remember verb key", actionid, key, param.verb || param.Verb || "");
 }
@@ -844,9 +846,36 @@ async function paint() {
       } else {
         await paintToolFrames(tool, lanes, now);
       }
+      paintArmedVerbs(tool, lanes, now);
     }
   } finally {
     paintInFlight = false;
+  }
+}
+
+// When an approval is pending, the Accept key itself blinks orange so the
+// eye lands on the choice: Accept / Reject / Stop. State 2 = "Armed".
+const ENABLE_ARMED_BLINK = true;
+const ARMED_BLINK_MS = 500;
+const ARMED_STATE_INDEX = 2;
+const armedSent = new Map(); // verb actionid -> last sent state index
+
+function paintArmedVerbs(tool, lanes, now) {
+  if (!ENABLE_ARMED_BLINK) return;
+  const anyInput = lanes.some((l) => l.logical === "needs_input");
+  for (const meta of verbKeys.values()) {
+    if (meta.verb !== "accept") continue;
+    if (meta.tool && meta.tool !== tool) continue;
+    const want = anyInput
+      ? Math.floor(now / ARMED_BLINK_MS) % 2 === 0
+        ? ARMED_STATE_INDEX
+        : 0
+      : 0;
+    const prev = armedSent.get(meta.actionid) ?? 0;
+    if (want !== prev) {
+      client.setState([item(meta, want)]);
+      armedSent.set(meta.actionid, want);
+    }
   }
 }
 

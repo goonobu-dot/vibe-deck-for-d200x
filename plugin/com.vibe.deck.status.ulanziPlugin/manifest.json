@@ -1,140 +1,287 @@
 {
-  "Author": "Vibe Deck",
-  "Name": "Vibe Deck Status",
-  "Description": "Codex Micro–style live agent status, profile ring, and page nav for D200X.",
-  "Category": "Vibe Deck",
-  "CategoryIcon": "Images/category.png",
-  "Version": "1.3.0",
-  "UUID": "com.vibe.deck.status",
-  "CodePath": "app/plugin.js",
-  "Icon": "Images/plugin.png",
-  "Type": "JavaScript",
-  "OS": [
-    { "Platform": "mac", "MinimumVersion": "12.0" }
-  ],
-  "Software": { "MinVersion": "3.0.0" },
-  "Actions": [
+ "Author": "Vibe Deck",
+ "Name": "Vibe Deck Status",
+ "Description": "Codex Micro–style live agent status, profile ring, and page nav for D200X.",
+ "Category": "Vibe Deck",
+ "CategoryIcon": "Images/category.png",
+ "Version": "1.4.0",
+ "UUID": "com.vibe.deck.status",
+ "CodePath": "app/plugin.js",
+ "Icon": "Images/plugin.png",
+ "Type": "JavaScript",
+ "OS": [
+  {
+   "Platform": "mac",
+   "MinimumVersion": "12.0"
+  }
+ ],
+ "Software": {
+  "MinVersion": "3.0.0"
+ },
+ "Actions": [
+  {
+   "Icon": "Images/agent-idle.png",
+   "Name": "Agent Slot",
+   "Tooltip": "Live agent status tile (colors update from Vibe Deck Bridge)",
+   "UUID": "com.vibe.deck.status.agent",
+   "Controllers": [
+    "Keypad"
+   ],
+   "Devices": [
+    "D200X"
+   ],
+   "States": [
     {
-      "Icon": "Images/agent-idle.png",
-      "Name": "Agent Slot",
-      "Tooltip": "Live agent status tile (colors update from Vibe Deck Bridge)",
-      "UUID": "com.vibe.deck.status.agent",
-      "Controllers": ["Keypad"],
-      "Devices": ["D200X"],
-      "States": [
-        { "Image": "Images/agent-idle.png", "Name": "Idle" },
-        { "Image": "Images/agent-thinking.png", "Name": "Thinking" },
-        { "Image": "Images/agent-done.png", "Name": "Done" },
-        { "Image": "Images/agent-needs_input.png", "Name": "Needs Input" },
-        { "Image": "Images/agent-error.png", "Name": "Error" },
-        { "Image": "Images/agent-empty.png", "Name": "Empty" },
-        { "Image": "Images/agent-thinking-dim.png", "Name": "Thinking Dim" },
-        { "Image": "Images/agent-needs_input-off.png", "Name": "Needs Input Off" },
-        { "Image": "Images/agent-done-pop.png", "Name": "Done Pop" },
-        { "Image": "Images/agent-blocked.png", "Name": "Blocked" }
-      ]
+     "Image": "Images/agent-idle.png",
+     "Name": "Idle"
     },
     {
-      "Icon": "Images/agent-thinking.png",
-      "Name": "Focus Agent",
-      "Tooltip": "Activate the desktop app for this agent slot",
-      "UUID": "com.vibe.deck.status.focus",
-      "Controllers": ["Keypad"],
-      "Devices": ["D200X"],
-      "States": [{ "Image": "Images/agent-thinking.png", "Name": "Focus" }]
+     "Image": "Images/agent-thinking.png",
+     "Name": "Thinking"
     },
     {
-      "Icon": "Images/agent-done.png",
-      "Name": "Refresh Status",
-      "Tooltip": "Force a bridge status refresh",
-      "UUID": "com.vibe.deck.status.refresh",
-      "Controllers": ["Keypad"],
-      "Devices": ["D200X"],
-      "States": [{ "Image": "Images/agent-done.png", "Name": "Refresh" }]
+     "Image": "Images/agent-done.png",
+     "Name": "Done"
     },
     {
-      "Icon": "Images/nav-prev.png",
-      "Name": "Prev Profile",
-      "Tooltip": "Switch to previous Ulanzi profile (dynamic ring)",
-      "UUID": "com.vibe.deck.status.profile.prev",
-      "Controllers": ["Keypad"],
-      "Devices": ["D200X"],
-      "States": [{ "Image": "Images/nav-prev.png", "Name": "Prev" }]
+     "Image": "Images/agent-needs_input.png",
+     "Name": "Needs Input"
     },
     {
-      "Icon": "Images/nav-next.png",
-      "Name": "Next Profile",
-      "Tooltip": "Switch to next Ulanzi profile (dynamic ring)",
-      "UUID": "com.vibe.deck.status.profile.next",
-      "Controllers": ["Keypad"],
-      "Devices": ["D200X"],
-      "States": [{ "Image": "Images/nav-next.png", "Name": "Next" }]
+     "Image": "Images/agent-error.png",
+     "Name": "Error"
     },
     {
-      "Icon": "Images/page-prev.png",
-      "Name": "Prev Page",
-      "Tooltip": "Previous page within current profile",
-      "UUID": "com.vibe.deck.status.page.prev",
-      "Controllers": ["Keypad"],
-      "Devices": ["D200X"],
-      "States": [{ "Image": "Images/page-prev.png", "Name": "Prev Page" }]
+     "Image": "Images/agent-empty.png",
+     "Name": "Empty"
     },
     {
-      "Icon": "Images/page-next.png",
-      "Name": "Next Page",
-      "Tooltip": "Next page within current profile",
-      "UUID": "com.vibe.deck.status.page.next",
-      "Controllers": ["Keypad"],
-      "Devices": ["D200X"],
-      "States": [{ "Image": "Images/page-next.png", "Name": "Next Page" }]
+     "Image": "Images/agent-thinking-dim.png",
+     "Name": "Thinking Dim"
     },
     {
-      "Icon": "Images/page-next.png",
-      "Name": "Page Dial",
-      "Tooltip": "Rotate to change pages within the current profile",
-      "UUID": "com.vibe.deck.status.page.dial",
-      "Controllers": ["Encoder", "Keypad"],
-      "Devices": ["D200X"],
-      "States": [{ "Image": "Images/page-next.png", "Name": "Pages" }]
+     "Image": "Images/agent-needs_input-off.png",
+     "Name": "Needs Input Off"
     },
     {
-      "Icon": "Images/agent-needs_input.png",
-      "Name": "Verb",
-      "Tooltip": "Unified control verb (accept/reject/stop/diff/new/voice/terminal/mode) — auto-focus, state guard, then send",
-      "UUID": "com.vibe.deck.status.verb",
-      "Controllers": ["Keypad"],
-      "Devices": ["D200X"],
-      "States": [
-        { "Image": "Images/agent-empty.png", "Name": "Verb" },
-        { "Image": "Images/agent-blocked.png", "Name": "Blocked" }
-      ]
+     "Image": "Images/agent-done-pop.png",
+     "Name": "Done Pop"
     },
     {
-      "Icon": "Images/nav-next.png",
-      "Name": "Tool Dial",
-      "Tooltip": "Rotate to cycle AI tool profiles; press to focus the current tool app",
-      "UUID": "com.vibe.deck.status.dial.tool",
-      "Controllers": ["Encoder", "Keypad"],
-      "Devices": ["D200X"],
-      "States": [{ "Image": "Images/nav-next.png", "Name": "Tool" }]
-    },
-    {
-      "Icon": "Images/agent-thinking.png",
-      "Name": "Lane Dial",
-      "Tooltip": "Rotate to select an agent lane (blink + session notification); press to focus its tool app",
-      "UUID": "com.vibe.deck.status.dial.lane",
-      "Controllers": ["Encoder", "Keypad"],
-      "Devices": ["D200X"],
-      "States": [{ "Image": "Images/agent-thinking.png", "Name": "Lane" }]
-    },
-    {
-      "Icon": "Images/agent-done.png",
-      "Name": "Autonomy Dial",
-      "Tooltip": "Rotate left = faster, right = deeper (autonomy verbs); press opens the mode UI",
-      "UUID": "com.vibe.deck.status.dial.autonomy",
-      "Controllers": ["Encoder", "Keypad"],
-      "Devices": ["D200X"],
-      "States": [{ "Image": "Images/agent-done.png", "Name": "Autonomy" }]
+     "Image": "Images/agent-blocked.png",
+     "Name": "Blocked"
     }
-  ]
+   ]
+  },
+  {
+   "Icon": "Images/agent-thinking.png",
+   "Name": "Focus Agent",
+   "Tooltip": "Activate the desktop app for this agent slot",
+   "UUID": "com.vibe.deck.status.focus",
+   "Controllers": [
+    "Keypad"
+   ],
+   "Devices": [
+    "D200X"
+   ],
+   "States": [
+    {
+     "Image": "Images/agent-thinking.png",
+     "Name": "Focus"
+    }
+   ]
+  },
+  {
+   "Icon": "Images/agent-done.png",
+   "Name": "Refresh Status",
+   "Tooltip": "Force a bridge status refresh",
+   "UUID": "com.vibe.deck.status.refresh",
+   "Controllers": [
+    "Keypad"
+   ],
+   "Devices": [
+    "D200X"
+   ],
+   "States": [
+    {
+     "Image": "Images/agent-done.png",
+     "Name": "Refresh"
+    }
+   ]
+  },
+  {
+   "Icon": "Images/nav-prev.png",
+   "Name": "Prev Profile",
+   "Tooltip": "Switch to previous Ulanzi profile (dynamic ring)",
+   "UUID": "com.vibe.deck.status.profile.prev",
+   "Controllers": [
+    "Keypad"
+   ],
+   "Devices": [
+    "D200X"
+   ],
+   "States": [
+    {
+     "Image": "Images/nav-prev.png",
+     "Name": "Prev"
+    }
+   ]
+  },
+  {
+   "Icon": "Images/nav-next.png",
+   "Name": "Next Profile",
+   "Tooltip": "Switch to next Ulanzi profile (dynamic ring)",
+   "UUID": "com.vibe.deck.status.profile.next",
+   "Controllers": [
+    "Keypad"
+   ],
+   "Devices": [
+    "D200X"
+   ],
+   "States": [
+    {
+     "Image": "Images/nav-next.png",
+     "Name": "Next"
+    }
+   ]
+  },
+  {
+   "Icon": "Images/page-prev.png",
+   "Name": "Prev Page",
+   "Tooltip": "Previous page within current profile",
+   "UUID": "com.vibe.deck.status.page.prev",
+   "Controllers": [
+    "Keypad"
+   ],
+   "Devices": [
+    "D200X"
+   ],
+   "States": [
+    {
+     "Image": "Images/page-prev.png",
+     "Name": "Prev Page"
+    }
+   ]
+  },
+  {
+   "Icon": "Images/page-next.png",
+   "Name": "Next Page",
+   "Tooltip": "Next page within current profile",
+   "UUID": "com.vibe.deck.status.page.next",
+   "Controllers": [
+    "Keypad"
+   ],
+   "Devices": [
+    "D200X"
+   ],
+   "States": [
+    {
+     "Image": "Images/page-next.png",
+     "Name": "Next Page"
+    }
+   ]
+  },
+  {
+   "Icon": "Images/page-next.png",
+   "Name": "Page Dial",
+   "Tooltip": "Rotate to change pages within the current profile",
+   "UUID": "com.vibe.deck.status.page.dial",
+   "Controllers": [
+    "Encoder",
+    "Keypad"
+   ],
+   "Devices": [
+    "D200X"
+   ],
+   "States": [
+    {
+     "Image": "Images/page-next.png",
+     "Name": "Pages"
+    }
+   ]
+  },
+  {
+   "Icon": "Images/agent-needs_input.png",
+   "Name": "Verb",
+   "Tooltip": "Unified control verb (accept/reject/stop/diff/new/voice/terminal/mode) — auto-focus, state guard, then send",
+   "UUID": "com.vibe.deck.status.verb",
+   "Controllers": [
+    "Keypad"
+   ],
+   "Devices": [
+    "D200X"
+   ],
+   "States": [
+    {
+     "Image": "Images/agent-empty.png",
+     "Name": "Verb"
+    },
+    {
+     "Image": "Images/agent-blocked.png",
+     "Name": "Blocked"
+    },
+    {
+     "Image": "Images/agent-needs_input.png",
+     "Name": "Armed"
+    }
+   ]
+  },
+  {
+   "Icon": "Images/nav-next.png",
+   "Name": "Tool Dial",
+   "Tooltip": "Rotate to cycle AI tool profiles; press to focus the current tool app",
+   "UUID": "com.vibe.deck.status.dial.tool",
+   "Controllers": [
+    "Encoder",
+    "Keypad"
+   ],
+   "Devices": [
+    "D200X"
+   ],
+   "States": [
+    {
+     "Image": "Images/nav-next.png",
+     "Name": "Tool"
+    }
+   ]
+  },
+  {
+   "Icon": "Images/agent-thinking.png",
+   "Name": "Lane Dial",
+   "Tooltip": "Rotate to select an agent lane (blink + session notification); press to focus its tool app",
+   "UUID": "com.vibe.deck.status.dial.lane",
+   "Controllers": [
+    "Encoder",
+    "Keypad"
+   ],
+   "Devices": [
+    "D200X"
+   ],
+   "States": [
+    {
+     "Image": "Images/agent-thinking.png",
+     "Name": "Lane"
+    }
+   ]
+  },
+  {
+   "Icon": "Images/agent-done.png",
+   "Name": "Autonomy Dial",
+   "Tooltip": "Rotate left = faster, right = deeper (autonomy verbs); press opens the mode UI",
+   "UUID": "com.vibe.deck.status.dial.autonomy",
+   "Controllers": [
+    "Encoder",
+    "Keypad"
+   ],
+   "Devices": [
+    "D200X"
+   ],
+   "States": [
+    {
+     "Image": "Images/agent-done.png",
+     "Name": "Autonomy"
+    }
+   ]
+  }
+ ]
 }

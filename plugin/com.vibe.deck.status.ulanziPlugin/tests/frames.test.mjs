@@ -64,9 +64,10 @@ describe("frame layout constants", () => {
       (a) => a.UUID === "com.vibe.deck.status.verb",
     );
     assert.ok(verb, "verb action missing from manifest");
-    assert.equal(verb.States.length, 2);
+    assert.equal(verb.States.length, 3);
     assert.equal(verb.States[0].Image, "Images/agent-empty.png");
     assert.equal(verb.States[1].Image, "Images/agent-blocked.png");
+    assert.equal(verb.States[2].Image, "Images/agent-needs_input.png");
   });
 });
 

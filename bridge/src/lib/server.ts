@@ -12,6 +12,7 @@ import {
   currentProfileName,
 } from "./profiles.js";
 import { DASHBOARD_HTML } from "./dashboard.js";
+import { applyEvents, recordEvent } from "./events.js";
 
 const TOOLS = new Set<ToolId>(["claude", "codex", "cursor"]);
 const STATUS_TTL_MS = 300;
@@ -80,10 +81,12 @@ export async function buildStatus(tool: ToolId): Promise<StatusPayload> {
       note: "collector timeout",
     };
   }
+  const agents = assignSlots(result.agents, undefined, { prioritize: !demo });
+  if (!demo) applyEvents(tool, agents);
   const payload: StatusPayload = {
     tool,
     bridge: result.health,
-    agents: assignSlots(result.agents, undefined, { prioritize: !demo }),
+    agents,
     updatedAt: Date.now(),
     note: result.note,
   };
@@ -114,6 +117,22 @@ export function startServer(port: number): ReturnType<typeof createServer> {
         const tool = parseTool(url);
         if (url.searchParams.get("fresh") === "1") invalidateStatus(tool);
         sendJson(res, 200, await buildStatus(tool));
+        return;
+      }
+      if (
+        (req.method === "GET" || req.method === "POST") &&
+        url.pathname === "/event"
+      ) {
+        const tool = parseTool(url);
+        const state = url.searchParams.get("state");
+        const session = url.searchParams.get("session") || "";
+        if (state !== "needs_input" && state !== "done") {
+          sendJson(res, 400, { error: "bad_state" });
+          return;
+        }
+        recordEvent(tool, state, session);
+        invalidateStatus(tool);
+        sendJson(res, 200, { ok: true, tool, state });
         return;
       }
       if (req.method === "POST" && url.pathname === "/invalidate") {
