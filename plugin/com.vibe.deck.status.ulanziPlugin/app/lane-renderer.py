@@ -43,9 +43,11 @@ TITLE_FG_DIM = (150, 158, 172)
 DETAIL_FG = (253, 230, 138)     # amber — approval detail
 DETAIL_FG_DIM = (128, 104, 62)
 
+# Full-card solid color per state (user request): the whole key IS the state
+# color, text is knocked out on top. Idle stays white (color language) with
+# dark text; every other state uses white text.
 STATES = {
-    #  key          bar color        bar text         label     animate
-    "idle":        {"bar": (148, 163, 184), "bar_fg": (30, 35, 45),   "label": "IDLE"},
+    "idle":        {"bar": (224, 227, 234), "bar_fg": (28, 32, 42),    "label": "IDLE"},
     "thinking":    {"bar": (37, 99, 235),   "bar_fg": (255, 255, 255), "label": "THINK"},
     "done":        {"bar": (22, 163, 74),   "bar_fg": (255, 255, 255), "label": "DONE"},
     "needs_input": {"bar": (245, 158, 11),  "bar_fg": (255, 255, 255), "label": "INPUT"},
@@ -55,7 +57,7 @@ STATES = {
 # Dim variants for the 2nd animation frame (breathing / blink-off).
 DIM_BAR = {
     "thinking": (16, 44, 106),
-    "needs_input": (110, 71, 5),
+    "needs_input": (128, 82, 6),
 }
 
 THINKING_FRAME_MS = 800   # half of the Phase A 1600ms breathing period
@@ -153,43 +155,44 @@ def draw_card(
 ) -> Image.Image:
     """Render one card frame. Flattened to RGB (opaque, GIF-safe)."""
     spec = STATES[state]
-    bar = bar_override or spec["bar"]
+    bg = bar_override or spec["bar"]
+    fg = spec["bar_fg"]
+
+    def scale(color, k):
+        return tuple(max(0, min(255, int(c * k))) for c in color)
 
     img = Image.new("RGB", (SIZE, SIZE), (0, 0, 0))
     draw = ImageDraw.Draw(img)
-    # card body
-    draw.rounded_rectangle((0, 0, SIZE - 1, SIZE - 1), radius=22, fill=CARD_BG)
-    # top status bar (rounded top corners, square bottom edge)
-    draw.rounded_rectangle((0, 0, SIZE - 1, 43), radius=22, fill=bar)
-    draw.rectangle((0, 24, SIZE - 1, 38), fill=bar)
+    # the whole card is the state color
+    draw.rounded_rectangle((0, 0, SIZE - 1, SIZE - 1), radius=22, fill=bg)
 
     bar_font = load_font(17)
-    draw.text((10, 10), spec["label"], font=bar_font, fill=spec["bar_fg"])
+    draw.text((10, 10), spec["label"], font=bar_font, fill=fg)
     elapsed_text = format_elapsed(elapsed_min)
     ew = text_width(draw, elapsed_text, bar_font)
-    draw.text((SIZE - 10 - ew, 10), elapsed_text, font=bar_font, fill=spec["bar_fg"])
+    draw.text((SIZE - 10 - ew, 10), elapsed_text, font=bar_font, fill=fg)
 
-    # session title — up to 2 lines, Japanese OK
+    # session title — up to 2 lines, Japanese OK, knocked out on the color
     title_font = load_font(20)
-    title_fg = TITLE_FG_DIM if dim_body else TITLE_FG
+    title_fg = scale(fg, 0.75) if dim_body else fg
     y = 48
     for line in wrap_text(draw, title, title_font, SIZE - 20, MAX_TITLE_LINES):
         draw.text((10, y), line, font=title_font, fill=title_fg)
         y += 26
 
-    # approval detail — needs_input only (amber, up to 2 lines)
+    # approval detail — needs_input only (dark on orange for contrast)
     if state == "needs_input" and detail:
         detail_font = load_font(15)
-        detail_fg = DETAIL_FG_DIM if dim_body else DETAIL_FG
+        detail_fg = (70, 45, 0) if not dim_body else (46, 30, 0)
         y = 102
         for line in wrap_text(draw, detail, detail_font, SIZE - 20, MAX_DETAIL_LINES):
             draw.text((10, y), line, font=detail_font, fill=detail_fg)
             y += 19
 
     if pop_check:
-        # done-pop: oversized check across the body (same stroke as icons)
+        # done-pop: oversized white check across the green body
         base = [(40, 78), (64, 100), (112, 52)]
-        draw.line(base, fill=(134, 239, 172), width=13, joint="curve")
+        draw.line(base, fill=(255, 255, 255), width=13, joint="curve")
 
     # subtle outer edge
     edge = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
