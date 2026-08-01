@@ -249,20 +249,22 @@ export const PAGES = Object.freeze([
  * one meaning per dial: Scroll / Session / Autonomy.
  */
 export const ENCODERS = Object.freeze({
+  // Press gestures open a picker; the right dial then selects and commits,
+  // so effort / mode can be changed without touching a key at all.
   "2_3": {
     name: "Scroll",
     perTool: {
-      claude: { rotL: "下スクロール", rotR: "上スクロール" },
-      codex: { rotL: "下スクロール", rotR: "上スクロール" },
-      cursor: { rotL: "下スクロール", rotR: "上スクロール" },
+      claude: { rotL: "下スクロール", rotR: "上スクロール", press: "⇧  ⌘  E" },
+      codex: { rotL: "下スクロール", rotR: "上スクロール", press: "⇧  ⌘  P" },
+      cursor: { rotL: "下スクロール", rotR: "上スクロール", press: "⌘  /" },
     },
   },
   "3_3": {
     name: "Session",
     perTool: {
-      claude: { rotL: "⌃  ⇧  Tab", rotR: "⌃  Tab" },
+      claude: { rotL: "⌃  ⇧  Tab", rotR: "⌃  Tab", press: "⇧  ⌘  M" },
       codex: { rotL: "⌘  [", rotR: "⌘  ]", press: "⌘  G" },
-      cursor: { rotL: "⌘  [", rotR: "⌘  ]" },
+      cursor: { rotL: "⌘  [", rotR: "⌘  ]", press: "⌘  ." },
     },
   },
   // Menu jog dial. Studio allows exactly ONE hotkey per knob gesture, so a
