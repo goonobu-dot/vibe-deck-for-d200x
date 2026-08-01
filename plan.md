@@ -77,6 +77,29 @@ Claude Code / Codex / Cursor の3ツールで**操作端を完全共通化**す�
 - codex: Plan(text "/plan"+Enter) / Fast(text "/fast"+Enter) / Quick ⌘⌥N
 - claude: Browser ⇧⌘B / SideChat ⌘; / Effort ⇧⌘E
 
+### Page 4 — COMMANDS（2026-08-01 追加）
+
+中段は全ツール共通の自走プロンプト（`system.text`・**Enter なし**＝ユーザーが続きを書くか Return で送信）:
+
+| キー | 名前 | icon | プロンプト |
+|------|------|------|-----------|
+| 0_1 | Goal | goal | "ゴール: 次の状態になるまで自走で完了させてください → " |
+| 1_1 | Continue | continue | "続きを完了まで進めてください。途中で止まらず、詰まったら状況を報告してください。" |
+| 2_1 | FixAll | fixall | "残っているエラー・警告・テスト失敗をすべて修正してください。" |
+| 3_1 | TestAll | testall | "テストを追加・実行し、全部通るまで修正を繰り返してください。" |
+| 4_1 | Ship | ship | "変更をセルフレビューして、コミットメッセージを付けてコミットまで仕上げてください。" |
+| 3_2 | （小窓予約） | — | Background |
+
+ツール固有ゾーン（Page4 下段 0_2〜2_2 の3キー・Page3 と同じ隔離方針）:
+
+| ツール | 0_2 | 1_2 | 2_2 |
+|--------|-----|-----|-----|
+| claude | Compact（text `/compact` +Enter, icon compact） | Session（hotkey ⌃Tab, icon session） | PickEl（hotkey ⇧⌘S, icon pickel） |
+| codex | Goal（text `/goal ` **Enterなし**＝ゴールを入力して Return, icon goal） | History（hotkey ⌘G, icon history） | Panel（hotkey ⌘J, icon panel） |
+| cursor | NextDiff（hotkey ⌥↓, icon hunknext） | PrevDiff（hotkey ⌥↑, icon hunkprev） | Queue（hotkey ⌃Return, icon queue） |
+
+配線: `layout-spec.mjs` の `PAGES` に4ページ目として定義。`wire-deck.mjs` の `ensurePageCount`（旧 ensureThirdPage の汎用化）が `PAGES.length` にページ数を揃える（既存ページ UUID は不変・冪等）。上段レーン・下段物理ボタン・ダイヤル・3_2 Background は既存ページと同一。新アイコン id: goal / continue / fixall / testall / ship / compact / session / pickel / history / panel / hunknext / hunkprev / queue（generate-tool-themes.py で3テーマ生成）。
+
 ### ダイヤル（全ページ共通。Encoder Actions に配線）
 
 **改訂（実機検証による）**: Ulanzi Studio はサードパーティプラグインのアクションを Encoder に一切イベント配信しない（add/rotate/press とも届かない。実機確認済み）。よってダイヤルは **Studio 標準 system.hotkey の knob_* 配線**のみで構成し、ツール切替はキーに移設した。

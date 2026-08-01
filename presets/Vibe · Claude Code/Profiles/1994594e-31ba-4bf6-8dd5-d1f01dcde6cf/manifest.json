@@ -1,0 +1,467 @@
+{
+  "Controllers": [
+    {
+      "Actions": {
+        "2_3": {
+          "Action": "com.ulanzi.ulanzideck.system.hotkey",
+          "ActionID": "5d6ffb39-170e-4c31-a112-913d8bcbee32",
+          "ActionParam": {
+            "Action": "com.ulanzi.ulanzideck.system.hotkey",
+            "knob_hold_left": {},
+            "knob_hold_right": {},
+            "knob_press": {},
+            "knob_rotate_left": {
+              "Hotkey": "下スクロール"
+            },
+            "knob_rotate_right": {
+              "Hotkey": "上スクロール"
+            }
+          },
+          "LinkedTitle": false,
+          "Name": "Scroll",
+          "Plugin": {
+            "Name": "系统",
+            "UUID": "com.ulanzi.deck.system",
+            "Version": "1.0"
+          },
+          "State": 0,
+          "ViewParam": [
+            {
+              "Icon": "",
+              "IconRel": "",
+              "Text": ""
+            }
+          ]
+        },
+        "3_3": {
+          "Action": "com.ulanzi.ulanzideck.system.hotkey",
+          "ActionID": "0ee74ccf-e4ca-4047-836b-a297210323dd",
+          "ActionParam": {
+            "Action": "com.ulanzi.ulanzideck.system.hotkey",
+            "knob_hold_left": {},
+            "knob_hold_right": {},
+            "knob_press": {},
+            "knob_rotate_left": {
+              "Hotkey": "⌃  ⇧  Tab"
+            },
+            "knob_rotate_right": {
+              "Hotkey": "⌃  Tab"
+            }
+          },
+          "LinkedTitle": false,
+          "Name": "Session",
+          "Plugin": {
+            "Name": "系统",
+            "UUID": "com.ulanzi.deck.system",
+            "Version": "1.0"
+          },
+          "State": 0,
+          "ViewParam": [
+            {
+              "Icon": "",
+              "IconRel": "",
+              "Text": ""
+            }
+          ]
+        },
+        "4_3": {
+          "Action": "com.ulanzi.ulanzideck.system.hotkey",
+          "ActionID": "ed01d5c9-5820-4bb9-9b0d-743f8f6ef941",
+          "ActionParam": {
+            "Action": "com.ulanzi.ulanzideck.system.hotkey",
+            "knob_hold_left": {},
+            "knob_hold_right": {},
+            "knob_press": {
+              "Hotkey": "⇧  ⌘  M"
+            },
+            "knob_rotate_left": {
+              "Hotkey": "⇧  ⌘  E"
+            },
+            "knob_rotate_right": {
+              "Hotkey": "⇧  ⌘  E"
+            }
+          },
+          "LinkedTitle": false,
+          "Name": "Autonomy",
+          "Plugin": {
+            "Name": "系统",
+            "UUID": "com.ulanzi.deck.system",
+            "Version": "1.0"
+          },
+          "State": 0,
+          "ViewParam": [
+            {
+              "Icon": "",
+              "IconRel": "",
+              "Text": ""
+            }
+          ]
+        }
+      },
+      "Type": "Encoder"
+    },
+    {
+      "Actions": {
+        "0_0": {
+          "Action": "com.vibe.deck.status.agent",
+          "ActionID": "ad37b191-e49c-452d-b816-8bcc7a0b7744",
+          "ActionParam": {
+            "slot": 1,
+            "tool": "claude"
+          },
+          "LinkedTitle": false,
+          "Name": "Agent 1",
+          "Plugin": {
+            "Name": "Vibe Deck Status",
+            "UUID": "com.vibe.deck.status",
+            "Version": "1.2.0"
+          },
+          "State": 0,
+          "ViewParam": [
+            {
+              "Icon": "",
+              "IconRel": "",
+              "Text": ""
+            }
+          ]
+        },
+        "1_0": {
+          "Action": "com.vibe.deck.status.agent",
+          "ActionID": "2b96d68c-f38e-4112-9719-6b88665a26f8",
+          "ActionParam": {
+            "slot": 2,
+            "tool": "claude"
+          },
+          "LinkedTitle": false,
+          "Name": "Agent 2",
+          "Plugin": {
+            "Name": "Vibe Deck Status",
+            "UUID": "com.vibe.deck.status",
+            "Version": "1.2.0"
+          },
+          "State": 0,
+          "ViewParam": [
+            {
+              "Icon": "",
+              "IconRel": "",
+              "Text": ""
+            }
+          ]
+        },
+        "2_0": {
+          "Action": "com.vibe.deck.status.agent",
+          "ActionID": "138613ee-5cbf-47c7-b538-16050d75d401",
+          "ActionParam": {
+            "slot": 3,
+            "tool": "claude"
+          },
+          "LinkedTitle": false,
+          "Name": "Agent 3",
+          "Plugin": {
+            "Name": "Vibe Deck Status",
+            "UUID": "com.vibe.deck.status",
+            "Version": "1.2.0"
+          },
+          "State": 0,
+          "ViewParam": [
+            {
+              "Icon": "",
+              "IconRel": "",
+              "Text": ""
+            }
+          ]
+        },
+        "3_0": {
+          "Action": "com.vibe.deck.status.agent",
+          "ActionID": "9c1b0ae7-4ddb-472c-b0a2-7e4a73e4e35f",
+          "ActionParam": {
+            "slot": 4,
+            "tool": "claude"
+          },
+          "LinkedTitle": false,
+          "Name": "Agent 4",
+          "Plugin": {
+            "Name": "Vibe Deck Status",
+            "UUID": "com.vibe.deck.status",
+            "Version": "1.2.0"
+          },
+          "State": 0,
+          "ViewParam": [
+            {
+              "Icon": "",
+              "IconRel": "",
+              "Text": ""
+            }
+          ]
+        },
+        "4_0": {
+          "Action": "com.vibe.deck.status.agent",
+          "ActionID": "e64beca9-e57c-4188-9605-7b53d2e9bf9a",
+          "ActionParam": {
+            "slot": 5,
+            "tool": "claude"
+          },
+          "LinkedTitle": false,
+          "Name": "Agent 5",
+          "Plugin": {
+            "Name": "Vibe Deck Status",
+            "UUID": "com.vibe.deck.status",
+            "Version": "1.2.0"
+          },
+          "State": 0,
+          "ViewParam": [
+            {
+              "Icon": "",
+              "IconRel": "",
+              "Text": ""
+            }
+          ]
+        },
+        "0_1": {
+          "Action": "com.vibe.deck.status.dial.tool",
+          "ActionID": "8c1dc1a7-a983-4c8c-923a-808f1e7b2def",
+          "ActionParam": {
+            "tool": "claude",
+            "mode": "cycle"
+          },
+          "LinkedTitle": false,
+          "Name": "Tool",
+          "Plugin": {
+            "Name": "Vibe Deck Status",
+            "UUID": "com.vibe.deck.status",
+            "Version": "1.2.0"
+          },
+          "State": 0,
+          "ViewParam": [
+            {
+              "Icon": "",
+              "IconRel": "Images/theme_claude_tool.png",
+              "Text": ""
+            }
+          ]
+        },
+        "1_1": {
+          "Action": "com.vibe.deck.status.refresh",
+          "ActionID": "1ea4cf19-6fae-4a3c-99e1-264d54964955",
+          "ActionParam": {},
+          "LinkedTitle": false,
+          "Name": "Refresh",
+          "Plugin": {
+            "Name": "Vibe Deck Status",
+            "UUID": "com.vibe.deck.status",
+            "Version": "1.2.0"
+          },
+          "State": 0,
+          "ViewParam": [
+            {
+              "Icon": "",
+              "IconRel": "Images/theme_claude_refresh.png",
+              "Text": ""
+            }
+          ]
+        },
+        "2_1": {
+          "Action": "com.ulanzi.ulanzideck.system.hotkey",
+          "ActionID": "40a4d0f6-9bb6-4dd5-b5dd-990b81614fc3",
+          "ActionParam": {
+            "Action": "com.ulanzi.ulanzideck.system.hotkey",
+            "Hotkey": "⌘  ,"
+          },
+          "LinkedTitle": false,
+          "Name": "Settings",
+          "Plugin": {
+            "Name": "系统",
+            "UUID": "com.ulanzi.deck.system",
+            "Version": "1.0"
+          },
+          "State": 0,
+          "ViewParam": [
+            {
+              "Icon": "",
+              "IconRel": "Images/theme_claude_settings.png",
+              "Text": ""
+            }
+          ]
+        },
+        "3_1": {
+          "Action": "com.ulanzi.ulanzideck.system.hotkey",
+          "ActionID": "961aec05-8933-46e9-95bb-4633a17e0c0d",
+          "ActionParam": {
+            "Action": "com.ulanzi.ulanzideck.system.hotkey",
+            "Hotkey": "⌘  /"
+          },
+          "LinkedTitle": false,
+          "Name": "Help",
+          "Plugin": {
+            "Name": "系统",
+            "UUID": "com.ulanzi.deck.system",
+            "Version": "1.0"
+          },
+          "State": 0,
+          "ViewParam": [
+            {
+              "Icon": "",
+              "IconRel": "Images/theme_claude_help.png",
+              "Text": ""
+            }
+          ]
+        },
+        "4_1": {
+          "Action": "com.ulanzi.ulanzideck.system.hotkey",
+          "ActionID": "4c26a446-e13a-4c7b-8909-0fb02dfd8a33",
+          "ActionParam": {
+            "Action": "com.ulanzi.ulanzideck.system.hotkey",
+            "Hotkey": "⇧  ⌘  I"
+          },
+          "LinkedTitle": false,
+          "Name": "Model",
+          "Plugin": {
+            "Name": "系统",
+            "UUID": "com.ulanzi.deck.system",
+            "Version": "1.0"
+          },
+          "State": 0,
+          "ViewParam": [
+            {
+              "Icon": "",
+              "IconRel": "Images/theme_claude_model.png",
+              "Text": ""
+            }
+          ]
+        },
+        "3_2": {
+          "Action": "com.ulanzi.ulanzideck.smallwindow.window",
+          "ActionID": "45a56f8f-4efb-4254-b707-c5a5e238e470",
+          "ActionParam": {
+            "SmallViewMode": 1
+          },
+          "LinkedTitle": false,
+          "Name": "Background",
+          "Plugin": {},
+          "State": 0,
+          "ViewParam": [
+            {
+              "Icon": "",
+              "IconRel": "",
+              "Text": ""
+            }
+          ]
+        },
+        "0_2": {
+          "Action": "com.ulanzi.ulanzideck.system.hotkey",
+          "ActionID": "550abd47-38ee-4682-ac53-fd77d40f50ec",
+          "ActionParam": {
+            "Action": "com.ulanzi.ulanzideck.system.hotkey",
+            "Hotkey": "⇧  ⌘  B"
+          },
+          "LinkedTitle": false,
+          "Name": "Browser",
+          "Plugin": {
+            "Name": "系统",
+            "UUID": "com.ulanzi.deck.system",
+            "Version": "1.0"
+          },
+          "State": 0,
+          "ViewParam": [
+            {
+              "Icon": "",
+              "IconRel": "Images/theme_claude_browser.png",
+              "Text": ""
+            }
+          ]
+        },
+        "1_2": {
+          "Action": "com.ulanzi.ulanzideck.system.hotkey",
+          "ActionID": "ea565b9f-666c-4891-8f9b-22802b7d86d7",
+          "ActionParam": {
+            "Action": "com.ulanzi.ulanzideck.system.hotkey",
+            "Hotkey": "⌘  ;"
+          },
+          "LinkedTitle": false,
+          "Name": "SideChat",
+          "Plugin": {
+            "Name": "系统",
+            "UUID": "com.ulanzi.deck.system",
+            "Version": "1.0"
+          },
+          "State": 0,
+          "ViewParam": [
+            {
+              "Icon": "",
+              "IconRel": "Images/theme_claude_sidechat.png",
+              "Text": ""
+            }
+          ]
+        },
+        "2_2": {
+          "Action": "com.ulanzi.ulanzideck.system.hotkey",
+          "ActionID": "fb1402e0-c7ef-48ba-8b0a-17ae832f1350",
+          "ActionParam": {
+            "Action": "com.ulanzi.ulanzideck.system.hotkey",
+            "Hotkey": "⇧  ⌘  E"
+          },
+          "LinkedTitle": false,
+          "Name": "Effort",
+          "Plugin": {
+            "Name": "系统",
+            "UUID": "com.ulanzi.deck.system",
+            "Version": "1.0"
+          },
+          "State": 0,
+          "ViewParam": [
+            {
+              "Icon": "",
+              "IconRel": "Images/theme_claude_effort.png",
+              "Text": ""
+            }
+          ]
+        },
+        "0_3": {
+          "Action": "com.ulanzi.ulanzideck.page.prev",
+          "ActionID": "01429a6d-52d3-4eb5-a564-be2c40b0f073",
+          "ActionParam": {},
+          "LinkedTitle": false,
+          "Name": "上一页",
+          "Plugin": {
+            "Name": "ページ",
+            "UUID": "com.ulanzi.deck.page",
+            "Version": "1.0"
+          },
+          "State": 0,
+          "ViewParam": [
+            {
+              "Icon": "",
+              "IconEx": "",
+              "IconRel": "",
+              "Text": ""
+            }
+          ]
+        },
+        "1_3": {
+          "Action": "com.ulanzi.ulanzideck.page.next",
+          "ActionID": "3d180e38-a33c-4701-a3d1-83fd12fbf82d",
+          "ActionParam": {},
+          "LinkedTitle": false,
+          "Name": "下一页",
+          "Plugin": {
+            "Name": "ページ",
+            "UUID": "com.ulanzi.deck.page",
+            "Version": "1.0"
+          },
+          "State": 0,
+          "ViewParam": [
+            {
+              "Icon": "",
+              "IconEx": "",
+              "IconRel": "",
+              "Text": ""
+            }
+          ]
+        }
+      },
+      "Type": "Keypad"
+    }
+  ],
+  "Icon": "",
+  "Name": "System"
+}

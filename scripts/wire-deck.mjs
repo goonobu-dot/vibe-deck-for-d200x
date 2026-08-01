@@ -190,25 +190,30 @@ function buildUnifiedPage(profileDir, pageId, pageIndex, ai) {
   writeJson(join(pageDir, "manifest.json"), page);
 }
 
-/** Profiles with fewer than 3 pages get an empty third page appended. */
-function ensureThirdPage(rootManifest, profileDir) {
+/**
+ * Profiles with fewer than PAGES.length pages get empty pages appended until
+ * the count matches the layout spec. Existing page UUIDs are never touched
+ * (idempotent: a second run appends nothing).
+ */
+function ensurePageCount(rootManifest, profileDir) {
   const pages = rootManifest.Pages.Pages;
-  if (pages.length >= 3) return pages[2];
-  const id = randomUUID();
-  const pageDir = join(profileDir, "Profiles", id);
-  mkdirSync(join(pageDir, "Images"), { recursive: true });
-  const page = {
-    Controllers: [
-      { Actions: {}, Type: "Encoder" },
-      { Actions: {}, Type: "Keypad" },
-    ],
-    Icon: "",
-    Name: "System",
-  };
-  writeJson(join(pageDir, "manifest.json"), page);
-  pages.push(id);
+  while (pages.length < PAGES.length) {
+    const id = randomUUID();
+    const pageDir = join(profileDir, "Profiles", id);
+    mkdirSync(join(pageDir, "Images"), { recursive: true });
+    const page = {
+      Controllers: [
+        { Actions: {}, Type: "Encoder" },
+        { Actions: {}, Type: "Keypad" },
+      ],
+      Icon: "",
+      Name: PAGES[pages.length].name,
+    };
+    writeJson(join(pageDir, "manifest.json"), page);
+    pages.push(id);
+  }
   rootManifest.Pages.Pages = pages;
-  return id;
+  return pages;
 }
 
 function stripTitles(page) {
@@ -283,14 +288,14 @@ function main() {
     const ai = AI[me.name];
 
     if (ai) {
-      ensureThirdPage(root, dir);
+      ensurePageCount(root, dir);
       writeJson(rootPath, root);
       const pageIds = root.Pages?.Pages || [];
-      if (pageIds.length < 3) {
+      if (pageIds.length < PAGES.length) {
         console.warn(`warn: ${me.name} still has ${pageIds.length} pages — skipped`);
         continue;
       }
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < PAGES.length; i++) {
         buildUnifiedPage(dir, pageIds[i], i, ai);
       }
       console.log(`unified layout -> ${me.name} (${ai.tool})`);
@@ -334,7 +339,7 @@ function main() {
   }
 
   console.log(
-    "\nDone. Restart Ulanzi Studio once. Layout: y0=agents / P1 verbs / P2 skills / P3 system; dials=tool·lane·autonomy.",
+    "\nDone. Restart Ulanzi Studio once. Layout: y0=agents / P1 verbs / P2 skills / P3 system / P4 commands; dials=tool·lane·autonomy.",
   );
 }
 

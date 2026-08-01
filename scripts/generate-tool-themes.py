@@ -81,6 +81,20 @@ COMMANDS = [
     ("lane", "Lane", "lanes"),
     ("autonomy", "Autonomy", "gauge"),
     ("tool", "Tool", "layers"),
+    # Page 4 "Commands" additions
+    ("goal", "Goal", "flag"),
+    ("continue", "Cont", "play"),
+    ("fixall", "FixAll", "wrench"),
+    ("testall", "TestAll", "flask"),
+    ("ship", "Ship", "rocket"),
+    ("compact", "Compact", "compress"),
+    ("session", "Session", "tabs"),
+    ("pickel", "PickEl", "focus"),
+    ("history", "History", "clock"),
+    ("panel", "Panel", "panel"),
+    ("hunknext", "NextDiff", "down"),
+    ("hunkprev", "PrevDiff", "up"),
+    ("queue", "Queue", "queue"),
 ]
 
 
@@ -276,6 +290,55 @@ def draw_glyph(draw, kind, fg, accent, soft=(100, 100, 100)):
                 outline=accent,
                 width=3,
             )
+    elif kind == "flag":
+        # goal flag on a pole
+        draw.line([(50, 30), (50, 96)], fill=fg, width=5)
+        draw.polygon([(54, 32), (102, 42), (54, 58)], fill=accent)
+    elif kind == "play":
+        # play triangle + end bar (continue to the finish)
+        draw.polygon([(48, 32), (92, 60), (48, 88)], fill=fg)
+        draw.line([(102, 32), (102, 88)], fill=accent, width=6)
+    elif kind == "rocket":
+        # ship it
+        draw.polygon([(72, 24), (88, 56), (84, 86), (60, 86), (56, 56)], fill=fg)
+        draw.ellipse((65, 46, 79, 60), fill=accent)
+        draw.polygon([(56, 66), (40, 90), (60, 84)], fill=accent)
+        draw.polygon([(88, 66), (104, 90), (84, 84)], fill=accent)
+    elif kind == "compress":
+        # two arrows squeezing onto a bar (/compact)
+        draw.line([(40, 61), (104, 61)], fill=accent, width=4)
+        draw.polygon([(58, 32), (86, 32), (72, 52)], fill=fg)
+        draw.polygon([(58, 90), (86, 90), (72, 70)], fill=fg)
+    elif kind == "tabs":
+        # two stacked session windows
+        draw.rounded_rectangle((36, 42, 92, 90), radius=6, outline=accent, width=3)
+        draw.rounded_rectangle((52, 30, 108, 78), radius=6, outline=fg, width=3)
+        draw.line([(60, 42), (100, 42)], fill=fg, width=3)
+    elif kind == "clock":
+        # history clock
+        draw.ellipse((44, 32, 100, 88), outline=accent, width=4)
+        draw.line([(72, 60), (72, 42)], fill=fg, width=5)
+        draw.line([(72, 60), (86, 68)], fill=fg, width=5)
+    elif kind == "panel":
+        # window with a bottom panel
+        draw.rounded_rectangle((36, 32, 108, 90), radius=8, outline=accent, width=3)
+        draw.line([(36, 66), (108, 66)], fill=accent, width=3)
+        draw.line([(46, 76), (84, 76)], fill=fg, width=4)
+        draw.line([(46, 46), (72, 46)], fill=soft, width=4)
+    elif kind == "down":
+        # next diff hunk
+        draw.line([(72, 28), (72, 68)], fill=fg, width=8)
+        draw.polygon([(52, 62), (92, 62), (72, 92)], fill=accent)
+    elif kind == "up":
+        # previous diff hunk
+        draw.line([(72, 92), (72, 52)], fill=fg, width=8)
+        draw.polygon([(52, 58), (92, 58), (72, 28)], fill=accent)
+    elif kind == "queue":
+        # queued messages feeding downward
+        draw.rounded_rectangle((40, 30, 104, 42), radius=5, fill=accent)
+        draw.rounded_rectangle((40, 48, 104, 60), radius=5, fill=soft)
+        draw.rounded_rectangle((40, 66, 104, 78), radius=5, fill=soft)
+        draw.polygon([(60, 84), (84, 84), (72, 100)], fill=fg)
     elif kind == "focus":
         draw.ellipse((44, 34, 100, 90), outline=accent, width=5)
         draw.line([(72, 28), (72, 44)], fill=fg, width=5)

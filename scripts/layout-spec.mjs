@@ -184,6 +184,60 @@ export const PAGES = Object.freeze([
       },
     },
   },
+  {
+    name: "Commands",
+    keys: {
+      "0_1": {
+        type: "prompt",
+        name: "Goal",
+        icon: "goal",
+        text: "ゴール: 次の状態になるまで自走で完了させてください → ",
+      },
+      "1_1": {
+        type: "prompt",
+        name: "Continue",
+        icon: "continue",
+        text: "続きを完了まで進めてください。途中で止まらず、詰まったら状況を報告してください。",
+      },
+      "2_1": {
+        type: "prompt",
+        name: "FixAll",
+        icon: "fixall",
+        text: "残っているエラー・警告・テスト失敗をすべて修正してください。",
+      },
+      "3_1": {
+        type: "prompt",
+        name: "TestAll",
+        icon: "testall",
+        text: "テストを追加・実行し、全部通るまで修正を繰り返してください。",
+      },
+      "4_1": {
+        type: "prompt",
+        name: "Ship",
+        icon: "ship",
+        text: "変更をセルフレビューして、コミットメッセージを付けてコミットまで仕上げてください。",
+      },
+      "3_2": { type: "background", name: "Background" },
+    },
+    /** Tool-specific zone (Page 4 / 0_2..2_2) — same isolation as Page 3. */
+    toolKeys: {
+      cursor: {
+        "0_2": { type: "hotkey", icon: "hunknext", name: "NextDiff", hotkey: "⌥  ↓" },
+        "1_2": { type: "hotkey", icon: "hunkprev", name: "PrevDiff", hotkey: "⌥  ↑" },
+        "2_2": { type: "hotkey", icon: "queue", name: "Queue", hotkey: "⌃  Return" },
+      },
+      codex: {
+        "0_2": { type: "text", icon: "goal", name: "Goal", text: "/goal ", enter: false },
+        "1_2": { type: "hotkey", icon: "history", name: "History", hotkey: "⌘  G" },
+        "2_2": { type: "hotkey", icon: "panel", name: "Panel", hotkey: "⌘  J" },
+      },
+      claude: {
+        "0_2": { type: "text", icon: "compact", name: "Compact", text: "/compact", enter: true },
+        "1_2": { type: "hotkey", icon: "session", name: "Session", hotkey: "⌃  Tab" },
+        "2_2": { type: "hotkey", icon: "pickel", name: "PickEl", hotkey: "⇧  ⌘  S" },
+      },
+    },
+  },
 ]);
 
 /**

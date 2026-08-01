@@ -102,7 +102,7 @@ function buildPreset(tool) {
   writeFileSync(
     join(base, "README.txt"),
     "Import this folder as a D200X profile in Ulanzi Studio, or run scripts/install.sh\n" +
-      `Tool=${tool}\nLayout=unified (plan.md): y0 agents / P1 verbs / P2 skills / P3 system, dials tool·lane·autonomy\n`,
+      `Tool=${tool}\nLayout=unified (plan.md): y0 agents / P1 verbs / P2 skills / P3 system / P4 commands, dials tool·lane·autonomy\n`,
   );
 
   console.log("built preset", def.profile, "->", base);
