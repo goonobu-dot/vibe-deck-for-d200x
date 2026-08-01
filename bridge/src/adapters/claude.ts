@@ -362,8 +362,58 @@ async function loadSessionMetaNames(): Promise<Map<string, string>> {
   return map;
 }
 
-/** A subagent transcript touched this recently means it is still running. */
-const SUBAGENT_LIVE_MS = 25_000;
+/** A subagent transcript touched this recently means it is still running.
+ * Generous: an agent on one long tool call can stay silent for a while. */
+const SUBAGENT_LIVE_MS = 90_000;
+
+/** Harness scratch root: /private/tmp/claude-<uid>/<project>/<session>/tasks */
+const TASK_ROOT = process.env.VIBE_DECK_TASK_ROOT || "/private/tmp";
+
+/**
+ * Background bash tasks never touch the transcript, so a session running one
+ * looks idle. Their output files live under the harness scratch dir keyed by
+ * session id — a recently written one means the session is still busy.
+ */
+async function hasLiveBackgroundTask(
+  sessionId: string,
+  now = Date.now(),
+): Promise<boolean> {
+  let roots: string[];
+  try {
+    roots = (await readdir(TASK_ROOT)).filter((n) => n.startsWith("claude-"));
+  } catch {
+    return false;
+  }
+  for (const root of roots) {
+    const base = join(TASK_ROOT, root);
+    let projects: string[];
+    try {
+      projects = await readdir(base);
+    } catch {
+      continue;
+    }
+    for (const project of projects) {
+      const dir = join(base, project, sessionId, "tasks");
+      if (!existsSync(dir)) continue;
+      let entries: string[];
+      try {
+        entries = await readdir(dir);
+      } catch {
+        continue;
+      }
+      for (const name of entries) {
+        if (!name.endsWith(".output")) continue;
+        try {
+          const st = await stat(join(dir, name));
+          if (now - st.mtimeMs <= SUBAGENT_LIVE_MS) return true;
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }
+  return false;
+}
 
 export function countLiveSubagents(
   files: { file: string; mtime: number }[],
@@ -425,11 +475,21 @@ async function parseGroupedSessions(): Promise<RawAgent[]> {
     // the parent transcript (and the Stop hook) both say "done" while the
     // session is in fact still busy. Live subagent files outrank that.
     const busySubagents = countLiveSubagents(g.files);
-    if (busySubagents > 0 && state !== "needs_input" && state !== "error") {
+    const busyTask =
+      busySubagents === 0 && (state === "done" || state === "idle")
+        ? await hasLiveBackgroundTask(g.id)
+        : false;
+    if (
+      (busySubagents > 0 || busyTask) &&
+      state !== "needs_input" &&
+      state !== "error"
+    ) {
       state = "thinking";
-      detail = busySubagents === 1
-        ? "サブエージェント実行中"
-        : `サブエージェント ${busySubagents} 件実行中`;
+      detail = busySubagents
+        ? busySubagents === 1
+          ? "サブエージェント実行中"
+          : `サブエージェント ${busySubagents} 件実行中`
+        : "バックグラウンド実行中";
     }
     agents.push({
       id: g.id,
