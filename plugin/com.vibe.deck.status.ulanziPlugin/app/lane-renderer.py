@@ -81,16 +81,19 @@ FONT_PATHS = [
     Path("/System/Library/Fonts/Hiragino Sans GB.ttc"),
     Path("/System/Library/Fonts/Supplemental/Arial Unicode.ttf"),
 ]
+# Latin labels/elapsed get SF Compact Rounded for the friendly look (design A).
+ROUNDED_FONT = Path("/System/Library/Fonts/SFCompactRounded.ttf")
 
-_font_cache: dict[int, ImageFont.FreeTypeFont | ImageFont.ImageFont] = {}
+_font_cache: dict[tuple[int, bool], ImageFont.FreeTypeFont | ImageFont.ImageFont] = {}
 
 
-def load_font(size: int):
-    cached = _font_cache.get(size)
+def load_font(size: int, rounded: bool = False):
+    cached = _font_cache.get((size, rounded))
     if cached is not None:
         return cached
     font: ImageFont.FreeTypeFont | ImageFont.ImageFont | None = None
-    for path in FONT_PATHS:
+    paths = ([ROUNDED_FONT] if rounded else []) + FONT_PATHS
+    for path in paths:
         if path.exists():
             try:
                 font = ImageFont.truetype(str(path), size=size, index=0)
@@ -99,8 +102,54 @@ def load_font(size: int):
                 continue
     if font is None:
         font = ImageFont.load_default()
-    _font_cache[size] = font
+    _font_cache[(size, rounded)] = font
     return font
+
+
+def draw_state_glyph(draw, state: str, cx: float, cy: float, k: float, fg, soft):
+    """Design-A badge glyph (ports the original cute icon set, scaled by k)."""
+    if state == "thinking":
+        w = max(3, int(5 * k))
+        draw.ellipse((cx - 26 * k, cy - 26 * k, cx + 26 * k, cy + 26 * k), outline=soft, width=w)
+        draw.ellipse((cx - 9 * k, cy - 9 * k, cx + 9 * k, cy + 9 * k), fill=fg)
+        draw.ellipse((cx + 16 * k, cy - 20 * k, cx + 26 * k, cy - 10 * k), fill=fg)
+    elif state == "needs_input":
+        draw.rounded_rectangle(
+            (cx - 30 * k, cy - 26 * k, cx + 30 * k, cy + 12 * k), radius=int(16 * k), fill=fg
+        )
+        draw.polygon(
+            [(cx - 8 * k, cy + 10 * k), (cx + 10 * k, cy + 10 * k), (cx - 2 * k, cy + 28 * k)],
+            fill=fg,
+        )
+        qfont = load_font(max(12, int(36 * k)), rounded=True)
+        qb = draw.textbbox((0, 0), "?", font=qfont)
+        draw.text(
+            (cx - (qb[2] - qb[0]) / 2, cy - 18 * k - (qb[3] - qb[1]) / 2 - 2),
+            "?",
+            font=qfont,
+            fill=soft,
+        )
+    elif state in ("done", "done_old"):
+        pts = [(cx - 24 * k, cy), (cx - 6 * k, cy + 16 * k), (cx + 28 * k, cy - 18 * k)]
+        draw.line(pts, fill=fg, width=max(5, int(9 * k)), joint="curve")
+    elif state == "idle":
+        draw.rounded_rectangle(
+            (cx - 18 * k, cy - 16 * k, cx - 6 * k, cy + 16 * k), radius=int(4 * k), fill=fg
+        )
+        draw.rounded_rectangle(
+            (cx + 6 * k, cy - 16 * k, cx + 18 * k, cy + 16 * k), radius=int(4 * k), fill=fg
+        )
+    elif state == "error":
+        draw.polygon(
+            [(cx, cy - 26 * k), (cx + 28 * k, cy + 20 * k), (cx - 28 * k, cy + 20 * k)], fill=fg
+        )
+        draw.rectangle((cx - 4 * k, cy - 10 * k, cx + 4 * k, cy + 6 * k), fill=soft)
+        draw.ellipse((cx - 4 * k, cy + 9 * k, cx + 4 * k, cy + 17 * k), fill=soft)
+    elif state in ("empty", "offline"):
+        draw.ellipse(
+            (cx - 22 * k, cy - 22 * k, cx + 22 * k, cy + 22 * k), outline=fg, width=max(3, int(4 * k))
+        )
+        draw.line((cx - 11 * k, cy, cx + 11 * k, cy), fill=fg, width=max(3, int(4 * k)))
 
 
 def text_width(draw: ImageDraw.ImageDraw, text: str, font) -> float:
@@ -173,28 +222,32 @@ def draw_card(
     # the whole card is the state color
     draw.rounded_rectangle((0, 0, SIZE - 1, SIZE - 1), radius=22, fill=bg)
 
-    bar_font = load_font(17)
+    # design A: glyph badge top-right — the cute icon set, kept small
+    glyph_fg = scale(fg, 0.8) if dim_body else fg
+    glyph_soft = scale(spec["bar"], 0.55) if state != "idle" else (150, 156, 170)
+    draw_state_glyph(draw, state, SIZE - 30, 30, 0.55, glyph_fg, glyph_soft)
+
+    bar_font = load_font(16, rounded=True)
     draw.text((10, 10), spec["label"], font=bar_font, fill=fg)
-    elapsed_text = format_elapsed(elapsed_min)
-    ew = text_width(draw, elapsed_text, bar_font)
-    draw.text((SIZE - 10 - ew, 10), elapsed_text, font=bar_font, fill=fg)
+    elapsed_font = load_font(15, rounded=True)
+    draw.text((10, 32), format_elapsed(elapsed_min), font=elapsed_font, fill=scale(fg, 0.9))
 
     # session title — up to 2 lines, Japanese OK, knocked out on the color
     title_font = load_font(20)
     title_fg = scale(fg, 0.75) if dim_body else fg
-    y = 48
+    y = 58
     for line in wrap_text(draw, title, title_font, SIZE - 20, MAX_TITLE_LINES):
         draw.text((10, y), line, font=title_font, fill=title_fg)
-        y += 26
+        y += 25
 
     # approval detail — needs_input only (dark on orange for contrast)
     if state == "needs_input" and detail:
-        detail_font = load_font(15)
+        detail_font = load_font(14)
         detail_fg = (70, 45, 0) if not dim_body else (46, 30, 0)
-        y = 102
+        y = 108
         for line in wrap_text(draw, detail, detail_font, SIZE - 20, MAX_DETAIL_LINES):
             draw.text((10, y), line, font=detail_font, fill=detail_fg)
-            y += 19
+            y += 17
 
     if pop_check:
         # done-pop: oversized white check across the green body
