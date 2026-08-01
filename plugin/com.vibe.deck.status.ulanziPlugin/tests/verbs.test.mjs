@@ -21,6 +21,8 @@ const ALL_VERBS = [
   "mode",
   "autonomy_fast",
   "autonomy_deep",
+  "cycle_model",
+  "cycle_effort",
 ];
 
 // ---------------------------------------------------------------------------
@@ -38,7 +40,7 @@ describe("translation table coverage", () => {
         const spec = verbs.getVerbSpec(verb, tool);
         assert.ok(spec, `missing spec for ${verb}×${tool}`);
         assert.ok(
-          ["keycode", "keystroke", "text"].includes(spec.type),
+          ["keycode", "keystroke", "text", "sequence"].includes(spec.type),
           `bad spec type for ${verb}×${tool}: ${spec.type}`,
         );
       }
@@ -324,4 +326,18 @@ describe("script builders", () => {
     const s = verbs.buildNotificationScript("セッション🚀", "Vibe Deck");
     assert.ok(s.includes("セッション🚀"));
   });
+});
+
+test("cycle macros compile to open→down→return sequences", () => {
+  for (const tool of ["claude", "cursor"]) {
+    const script = verbs.buildVerbScript("cycle_model", tool);
+    assert.match(script, /delay 0\.35/);
+    assert.match(script, /key code 125/);
+    assert.match(script, /key code 36/);
+  }
+  const effort = verbs.buildVerbScript("cycle_effort", "claude");
+  assert.match(effort, /keystroke "e" using \{shift down, command down\}/);
+  assert.match(effort, /key code 125/);
+  // codex falls back to the command menu (no discrete picker hotkey)
+  assert.match(verbs.buildVerbScript("cycle_model", "codex"), /keystroke "p"/);
 });

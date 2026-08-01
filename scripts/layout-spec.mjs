@@ -162,7 +162,8 @@ export const PAGES = Object.freeze([
       "1_1": { type: "refresh", icon: "refresh", name: "Refresh" },
       "2_1": { type: "hotkey", icon: "settings", name: "Settings", hotkey: "⌘  ," },
       "3_1": { type: "help", icon: "help", name: "Help" },
-      "4_1": { type: "model", icon: "model", name: "Model" },
+      // Press-to-cycle: the plugin runs open-picker → down → return.
+      "4_1": { type: "verb", verb: "cycle_model", icon: "model", name: "Model" },
       "3_2": { type: "background", name: "Background" },
     },
     /** The ONLY tool-specific zone in the whole layout (Page 3 / 0_2..2_2). */
@@ -180,7 +181,7 @@ export const PAGES = Object.freeze([
       claude: {
         "0_2": { type: "hotkey", icon: "browser", name: "Browser", hotkey: "⇧  ⌘  B" },
         "1_2": { type: "hotkey", icon: "sidechat", name: "SideChat", hotkey: "⌘  ;" },
-        "2_2": { type: "hotkey", icon: "effort", name: "Effort", hotkey: "⇧  ⌘  E" },
+        "2_2": { type: "verb", verb: "cycle_effort", icon: "effort", name: "Effort" },
       },
     },
   },

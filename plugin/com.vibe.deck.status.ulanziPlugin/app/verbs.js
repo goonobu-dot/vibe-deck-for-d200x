@@ -28,6 +28,8 @@ const KEY_CODE = Object.freeze({
   SPACE: 49,
   BACKTICK: 50, // ` / ~ physical key
   CAPS_LOCK: 57,
+  DOWN: 125,
+  UP: 126,
 });
 
 const MODIFIER_SUFFIX = Object.freeze({
@@ -47,6 +49,14 @@ function keystroke(chars, modifiers = []) {
 
 function text(str) {
   return { type: "text", text: str, pressReturn: true };
+}
+
+/**
+ * Multi-step macro inside ONE osascript (menu → arrow → confirm).
+ * items: { step, delayAfter } — delayAfter in seconds after that step.
+ */
+function seq(...items) {
+  return { type: "sequence", items };
 }
 
 /**
@@ -102,6 +112,32 @@ const VERB_TABLE = Object.freeze({
   autonomy_deep: {
     claude: keystroke("e", ["shift", "command"]),
     codex: text("/plan"),
+    cursor: keystroke("/", ["command"]),
+  },
+  // Press-to-cycle: open the picker, step to the next entry, confirm.
+  // Dials cannot run macros (Studio limits knobs to single hotkeys), so
+  // real switching lives on keys. Codex has no discrete picker hotkey —
+  // its key opens the command menu instead (documented).
+  cycle_model: {
+    claude: seq(
+      { step: keystroke("i", ["shift", "command"]), delayAfter: 0.35 },
+      { step: keycode(KEY_CODE.DOWN), delayAfter: 0.12 },
+      { step: keycode(KEY_CODE.RETURN) },
+    ),
+    codex: keystroke("p", ["shift", "command"]),
+    cursor: seq(
+      { step: keystroke("/", ["command"]), delayAfter: 0.35 },
+      { step: keycode(KEY_CODE.DOWN), delayAfter: 0.12 },
+      { step: keycode(KEY_CODE.RETURN) },
+    ),
+  },
+  cycle_effort: {
+    claude: seq(
+      { step: keystroke("e", ["shift", "command"]), delayAfter: 0.35 },
+      { step: keycode(KEY_CODE.DOWN), delayAfter: 0.12 },
+      { step: keycode(KEY_CODE.RETURN) },
+    ),
+    codex: keystroke("p", ["shift", "command"]),
     cursor: keystroke("/", ["command"]),
   },
 });
@@ -242,6 +278,18 @@ function stepToLines(step) {
     const lines = [`keystroke "${escapeAppleScriptString(step.text)}"`];
     if (step.pressReturn) {
       lines.push("delay 0.05", `key code ${KEY_CODE.RETURN}`);
+    }
+    return lines;
+  }
+  if (step.type === "sequence") {
+    if (!Array.isArray(step.items) || step.items.length === 0) {
+      throw new Error("sequence requires items");
+    }
+    const lines = [];
+    for (const item of step.items) {
+      lines.push(...stepToLines(item.step));
+      const d = Number(item.delayAfter);
+      if (Number.isFinite(d) && d > 0) lines.push(`delay ${d}`);
     }
     return lines;
   }
