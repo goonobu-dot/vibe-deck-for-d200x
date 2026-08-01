@@ -265,12 +265,16 @@ export const ENCODERS = Object.freeze({
       cursor: { rotL: "⌘  [", rotR: "⌘  ]" },
     },
   },
+  // Menu jog dial. Studio allows exactly ONE hotkey per knob gesture, so a
+  // dial can never do "open → arrow → confirm" by itself. Instead the keys
+  // open a picker (Effort / Mode / Model) and this dial navigates it:
+  // rotate = ↑/↓ through the open menu, press = Return to commit.
   "4_3": {
-    name: "Autonomy",
+    name: "Select",
     perTool: {
-      claude: { rotL: "⇧  ⌘  E", rotR: "⇧  ⌘  E", press: "⇧  ⌘  M" },
-      codex: { rotL: "⇧  ⌘  P", rotR: "⇧  ⌘  P", press: "⇧  ⌘  P" },
-      cursor: { rotL: "⌘  /", rotR: "⌘  /", press: "⌘  ." },
+      claude: { rotL: "↑", rotR: "↓", press: "Return" },
+      codex: { rotL: "↑", rotR: "↓", press: "Return" },
+      cursor: { rotL: "↑", rotR: "↓", press: "Return" },
     },
   },
 });
