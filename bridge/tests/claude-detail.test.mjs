@@ -138,3 +138,17 @@ test("summarizeToolUse survives hostile inputs", () => {
   assert.equal([...emoji].length, 30);
   assert.doesNotThrow(() => encodeURIComponent(emoji));
 });
+
+test("live subagent files mark the session busy", async () => {
+  const { countLiveSubagents } = await import("../dist/adapters/claude.js");
+  const now = 1_000_000;
+  const files = [
+    { file: "/p/sess.jsonl", mtime: now - 60_000 },
+    { file: "/p/sess/subagents/agent-a.jsonl", mtime: now - 5_000 },
+    { file: "/p/sess/subagents/agent-b.jsonl", mtime: now - 1_000 },
+    { file: "/p/sess/subagents/agent-old.jsonl", mtime: now - 90_000 },
+  ];
+  assert.equal(countLiveSubagents(files, now), 2);
+  assert.equal(countLiveSubagents([files[0]], now), 0);
+  assert.equal(countLiveSubagents([], now), 0);
+});

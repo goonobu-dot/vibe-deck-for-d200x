@@ -51,6 +51,12 @@ export function applyEvents(tool: ToolId, agents: AgentSnapshot[]): void {
       // The session moved on after the event — inference wins again.
       continue;
     }
+    // A Stop hook fires when the main loop finishes, but background
+    // subagents may still be running; never paint those green.
+    if (ev.state === "done" && agent.state === "thinking") {
+      live.push(ev);
+      continue;
+    }
     if (agent.state !== "error") agent.state = ev.state;
     live.push(ev);
   }

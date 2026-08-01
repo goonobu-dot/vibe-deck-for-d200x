@@ -362,6 +362,21 @@ async function loadSessionMetaNames(): Promise<Map<string, string>> {
   return map;
 }
 
+/** A subagent transcript touched this recently means it is still running. */
+const SUBAGENT_LIVE_MS = 25_000;
+
+export function countLiveSubagents(
+  files: { file: string; mtime: number }[],
+  now = Date.now(),
+): number {
+  let live = 0;
+  for (const f of files) {
+    if (!basename(f.file).startsWith("agent-")) continue;
+    if (now - f.mtime <= SUBAGENT_LIVE_MS) live += 1;
+  }
+  return live;
+}
+
 async function parseGroupedSessions(): Promise<RawAgent[]> {
   const ranked: { file: string; mtime: number; size: number }[] = [];
   await walkJsonl(PROJECTS, ranked);
@@ -404,7 +419,18 @@ async function parseGroupedSessions(): Promise<RawAgent[]> {
       g.id.slice(0, 36);
     const parsed = inferFromLines(lines, fallback);
     const ageSec = (Date.now() - g.mtime) / 1000;
-    const state = ageState(parsed.state, ageSec);
+    let state = ageState(parsed.state, ageSec);
+    let detail = parsed.detail;
+    // Background subagents keep working after the main loop's turn ends, so
+    // the parent transcript (and the Stop hook) both say "done" while the
+    // session is in fact still busy. Live subagent files outrank that.
+    const busySubagents = countLiveSubagents(g.files);
+    if (busySubagents > 0 && state !== "needs_input" && state !== "error") {
+      state = "thinking";
+      detail = busySubagents === 1
+        ? "サブエージェント実行中"
+        : `サブエージェント ${busySubagents} 件実行中`;
+    }
     agents.push({
       id: g.id,
       title: parsed.title || fallback,
@@ -412,8 +438,8 @@ async function parseGroupedSessions(): Promise<RawAgent[]> {
       updatedAt: g.mtime,
       focusAction: { kind: "activate_app", payload: "Claude" },
       // Aging can demote to idle; the detail must not outlive activity.
-      ...((state === "needs_input" || state === "thinking") && parsed.detail
-        ? { detail: parsed.detail }
+      ...((state === "needs_input" || state === "thinking") && detail
+        ? { detail }
         : {}),
     });
   }
