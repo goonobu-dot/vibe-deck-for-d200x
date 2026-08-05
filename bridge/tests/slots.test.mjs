@@ -69,3 +69,26 @@ test("pads to eight empty slots", () => {
 
 // silence unused
 createRequire(import.meta.url);
+
+test("lanes stick to a session even when another one outranks it", async () => {
+  const { assignSlots, resetStickySlots } = await import("../dist/lib/slots.js");
+  resetStickySlots();
+  const mk = (id, state, t) => ({ id, title: id, state, updatedAt: t, focusAction: undefined });
+  const first = assignSlots([mk("A", "thinking", 200), mk("B", "idle", 100)], 8, { tool: "x" });
+  assert.equal(first[0].id, "A");
+  assert.equal(first[1].id, "B");
+  // B becomes the hottest and a brand new session appears: A and B keep lanes.
+  const second = assignSlots(
+    [mk("B", "needs_input", 400), mk("A", "done", 300), mk("C", "thinking", 350)],
+    8,
+    { tool: "x" },
+  );
+  assert.equal(second[0].id, "A");
+  assert.equal(second[1].id, "B");
+  assert.equal(second[2].id, "C"); // newcomer takes the first free lane
+  // A disappears → its lane is freed and reused by the next newcomer.
+  const third = assignSlots([mk("B", "idle", 500), mk("D", "thinking", 500)], 8, { tool: "x" });
+  assert.equal(third[1].id, "B");
+  assert.equal(third[0].id, "D");
+  resetStickySlots();
+});

@@ -81,7 +81,10 @@ export async function buildStatus(tool: ToolId): Promise<StatusPayload> {
       note: "collector timeout",
     };
   }
-  const agents = assignSlots(result.agents, undefined, { prioritize: !demo });
+  const agents = assignSlots(result.agents, undefined, {
+    prioritize: !demo,
+    tool, // sticky lanes are per tool
+  });
   if (!demo) applyEvents(tool, agents);
   const payload: StatusPayload = {
     tool,
