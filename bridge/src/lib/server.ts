@@ -19,6 +19,12 @@ const STATUS_TTL_MS = 300;
 /** A wedged collector must not wedge the whole HTTP server (seen after
  * multi-day uptime across sleep/wake): cap each collect and fall back. */
 const COLLECT_TIMEOUT_MS = 4000;
+/** Cache older than this is reported as degraded (but still served). */
+const STALE_OK_MS = 5000;
+/** Cold start only — stay under the plugin's own 2s fetch timeout. */
+const FIRST_COLLECT_WAIT_MS = 1500;
+/** Background refresh cadence: keeps /status a pure cache read. */
+const REFRESH_MS = 700;
 
 const lastGood = new Map<ToolId, StatusPayload>();
 
@@ -54,50 +60,90 @@ function parseTool(url: URL): ToolId {
   return TOOLS.has(tool) ? tool : "codex";
 }
 
+/** One in-flight collection per tool; /status never waits on a second one. */
+const refreshing = new Set<ToolId>();
+
+async function refresh(tool: ToolId): Promise<StatusPayload | null> {
+  if (refreshing.has(tool)) return null;
+  refreshing.add(tool);
+  try {
+    const result = await withTimeout(collectTool(tool), COLLECT_TIMEOUT_MS);
+    if (!result) return null;
+    const agents = assignSlots(result.agents, undefined, {
+      prioritize: true,
+      tool,
+    });
+    applyEvents(tool, agents);
+    const payload: StatusPayload = {
+      tool,
+      bridge: result.health,
+      agents,
+      updatedAt: Date.now(),
+      note: result.note,
+    };
+    setCachedStatus(tool, payload);
+    lastGood.set(tool, payload);
+    return payload;
+  } catch {
+    return null;
+  } finally {
+    refreshing.delete(tool);
+  }
+}
+
+/**
+ * Serve from cache and refresh in the background. A wedged collector (seen
+ * after long uptime across sleep/wake, or a slow filesystem walk) must never
+ * make the deck wait — the plugin gives up after 2s and the lanes freeze.
+ */
 export async function buildStatus(tool: ToolId): Promise<StatusPayload> {
-  const demo = process.env.VIBE_DECK_DEMO === "1";
-  if (!demo) {
-    const cached = getCachedStatus(tool, STATUS_TTL_MS);
-    if (cached) return cached;
+  if (process.env.VIBE_DECK_DEMO === "1") {
+    const demo = demoAgents(tool);
+    return {
+      tool,
+      bridge: demo.health,
+      agents: assignSlots(demo.agents, undefined, { prioritize: false }),
+      updatedAt: Date.now(),
+      note: demo.note,
+    };
   }
 
-  const result = demo
-    ? demoAgents(tool)
-    : await withTimeout(collectTool(tool), COLLECT_TIMEOUT_MS);
-  if (!result) {
-    const stale = lastGood.get(tool);
-    if (stale) {
-      return {
-        ...stale,
-        bridge: "degraded",
-        note: "collector timeout — showing last known state",
-      };
-    }
+  const cached = getCachedStatus(tool, STATUS_TTL_MS);
+  if (cached) return cached;
+
+  const stale = lastGood.get(tool);
+  if (stale) {
+    void refresh(tool); // warm the cache for the next poll
+    const ageMs = Date.now() - stale.updatedAt;
+    if (ageMs < STALE_OK_MS) return stale;
     return {
+      ...stale,
+      bridge: "degraded",
+      note: `collector slow (${Math.round(ageMs / 1000)}s stale) — last known state`,
+    };
+  }
+
+  // Cold start only: wait, but never longer than the plugin's own timeout.
+  const fresh = await withTimeout(refresh(tool), FIRST_COLLECT_WAIT_MS);
+  return (
+    fresh ?? {
       tool,
       bridge: "degraded",
       agents: [],
       updatedAt: Date.now(),
-      note: "collector timeout",
-    };
-  }
-  const agents = assignSlots(result.agents, undefined, {
-    prioritize: !demo,
-    tool, // sticky lanes are per tool
-  });
-  if (!demo) applyEvents(tool, agents);
-  const payload: StatusPayload = {
-    tool,
-    bridge: result.health,
-    agents,
-    updatedAt: Date.now(),
-    note: result.note,
-  };
-  if (!demo) {
-    setCachedStatus(tool, payload);
-    lastGood.set(tool, payload);
-  }
-  return payload;
+      note: "collecting…",
+    }
+  );
+}
+
+/** Keep every tool's snapshot warm so /status is always a cache hit. */
+export function startRefreshLoop(): ReturnType<typeof setInterval> {
+  const timer = setInterval(() => {
+    if (process.env.VIBE_DECK_DEMO === "1") return;
+    for (const tool of TOOLS) void refresh(tool);
+  }, REFRESH_MS);
+  timer.unref?.();
+  return timer;
 }
 
 export function startServer(port: number): ReturnType<typeof createServer> {

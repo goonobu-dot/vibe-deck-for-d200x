@@ -374,45 +374,66 @@ const TASK_ROOT = process.env.VIBE_DECK_TASK_ROOT || "/private/tmp";
  * looks idle. Their output files live under the harness scratch dir keyed by
  * session id — a recently written one means the session is still busy.
  */
-async function hasLiveBackgroundTask(
-  sessionId: string,
-  now = Date.now(),
-): Promise<boolean> {
-  let roots: string[];
+const TASK_SCAN_TTL_MS = 5000;
+let taskScan: { at: number; busy: Set<string> } | null = null;
+
+/**
+ * ONE scan per few seconds builds the set of session ids with a freshly
+ * written background-task output. Scanning per session on every poll walked
+ * the whole scratch tree and wedged the collector — never do that again.
+ */
+async function busyBackgroundSessions(now = Date.now()): Promise<Set<string>> {
+  if (taskScan && now - taskScan.at < TASK_SCAN_TTL_MS) return taskScan.busy;
+  const busy = new Set<string>();
   try {
-    roots = (await readdir(TASK_ROOT)).filter((n) => n.startsWith("claude-"));
-  } catch {
-    return false;
-  }
-  for (const root of roots) {
-    const base = join(TASK_ROOT, root);
-    let projects: string[];
-    try {
-      projects = await readdir(base);
-    } catch {
-      continue;
-    }
-    for (const project of projects) {
-      const dir = join(base, project, sessionId, "tasks");
-      if (!existsSync(dir)) continue;
-      let entries: string[];
+    const roots = (await readdir(TASK_ROOT)).filter((n) =>
+      n.startsWith("claude-"),
+    );
+    for (const root of roots) {
+      const base = join(TASK_ROOT, root);
+      let projects: string[];
       try {
-        entries = await readdir(dir);
+        projects = await readdir(base);
       } catch {
         continue;
       }
-      for (const name of entries) {
-        if (!name.endsWith(".output")) continue;
+      for (const project of projects) {
+        const projectDir = join(base, project);
+        let sessions: string[];
         try {
-          const st = await stat(join(dir, name));
-          if (now - st.mtimeMs <= SUBAGENT_LIVE_MS) return true;
+          sessions = await readdir(projectDir);
         } catch {
-          // ignore
+          continue;
+        }
+        for (const session of sessions) {
+          const dir = join(projectDir, session, "tasks");
+          if (!existsSync(dir)) continue;
+          let entries: string[];
+          try {
+            entries = await readdir(dir);
+          } catch {
+            continue;
+          }
+          for (const name of entries) {
+            if (!name.endsWith(".output")) continue;
+            try {
+              const st = await stat(join(dir, name));
+              if (now - st.mtimeMs <= SUBAGENT_LIVE_MS) {
+                busy.add(session);
+                break;
+              }
+            } catch {
+              // ignore
+            }
+          }
         }
       }
     }
+  } catch {
+    // scratch root unavailable — treat as "nothing running"
   }
-  return false;
+  taskScan = { at: now, busy };
+  return busy;
 }
 
 export function countLiveSubagents(
@@ -452,6 +473,8 @@ async function parseGroupedSessions(): Promise<RawAgent[]> {
     loadSessionMetaNames(),
   ]);
 
+  const backgroundBusy = await busyBackgroundSessions();
+
   const agents: RawAgent[] = [];
   for (const g of ordered.slice(0, 8)) {
     // Prefer the hottest file in the group (often a live subagent).
@@ -475,10 +498,7 @@ async function parseGroupedSessions(): Promise<RawAgent[]> {
     // the parent transcript (and the Stop hook) both say "done" while the
     // session is in fact still busy. Live subagent files outrank that.
     const busySubagents = countLiveSubagents(g.files);
-    const busyTask =
-      busySubagents === 0 && (state === "done" || state === "idle")
-        ? await hasLiveBackgroundTask(g.id)
-        : false;
+    const busyTask = busySubagents === 0 && backgroundBusy.has(g.id);
     if (
       (busySubagents > 0 || busyTask) &&
       state !== "needs_input" &&
