@@ -417,8 +417,14 @@ async function busyBackgroundSessions(now = Date.now()): Promise<Set<string>> {
           for (const name of entries) {
             if (!name.endsWith(".output")) continue;
             try {
-              const st = await stat(join(dir, name));
-              if (now - st.mtimeMs <= SUBAGENT_LIVE_MS) {
+              const full = join(dir, name);
+              const st = await stat(full);
+              // Same growth rule as subagents: a finished task's file can
+              // still carry a fresh mtime.
+              if (
+                now - st.mtimeMs <= SUBAGENT_LIVE_MS &&
+                isGrowing(full, st.size, now)
+              ) {
                 busy.add(session);
                 break;
               }
@@ -436,14 +442,39 @@ async function busyBackgroundSessions(now = Date.now()): Promise<Set<string>> {
   return busy;
 }
 
-export function countLiveSubagents(
-  files: { file: string; mtime: number }[],
+/**
+ * Liveness by GROWTH, not mtime: Claude Code re-touches finished subagent
+ * transcripts (all 9 of a long session showed "now" as their mtime), so a
+ * timestamp check reported dead agents as running and the lane never went
+ * green. A transcript that gained bytes since the previous poll is alive.
+ */
+type FileStat = { file: string; mtime: number; size: number };
+
+const sizeSeen = new Map<string, { size: number; at: number }>();
+const GROWTH_WINDOW_MS = 120_000;
+
+/** Test seam. */
+export function resetGrowthTracking(): void {
+  sizeSeen.clear();
+}
+
+export function isGrowing(
+  file: string,
+  size: number,
   now = Date.now(),
-): number {
+): boolean {
+  const prev = sizeSeen.get(file);
+  sizeSeen.set(file, { size, at: now });
+  if (!prev) return false; // first sighting proves nothing
+  if (now - prev.at > GROWTH_WINDOW_MS) return false;
+  return size > prev.size;
+}
+
+export function countLiveSubagents(files: FileStat[], now = Date.now()): number {
   let live = 0;
   for (const f of files) {
     if (!basename(f.file).startsWith("agent-")) continue;
-    if (now - f.mtime <= SUBAGENT_LIVE_MS) live += 1;
+    if (isGrowing(f.file, f.size, now)) live += 1;
   }
   return live;
 }
@@ -456,13 +487,13 @@ async function parseGroupedSessions(): Promise<RawAgent[]> {
   type Group = {
     id: string;
     mtime: number;
-    files: { file: string; mtime: number }[];
+    files: FileStat[];
   };
   const groups = new Map<string, Group>();
   for (const item of ranked) {
     const id = sessionKey(item.file);
     const g = groups.get(id) || { id, mtime: 0, files: [] };
-    g.files.push({ file: item.file, mtime: item.mtime });
+    g.files.push({ file: item.file, mtime: item.mtime, size: item.size });
     if (item.mtime > g.mtime) g.mtime = item.mtime;
     groups.set(id, g);
   }

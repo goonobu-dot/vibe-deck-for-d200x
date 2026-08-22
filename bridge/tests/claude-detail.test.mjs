@@ -139,16 +139,22 @@ test("summarizeToolUse survives hostile inputs", () => {
   assert.doesNotThrow(() => encodeURIComponent(emoji));
 });
 
-test("live subagent files mark the session busy", async () => {
-  const { countLiveSubagents } = await import("../dist/adapters/claude.js");
-  const now = 1_000_000;
-  const files = [
-    { file: "/p/sess.jsonl", mtime: now - 60_000 },
-    { file: "/p/sess/subagents/agent-a.jsonl", mtime: now - 5_000 },
-    { file: "/p/sess/subagents/agent-b.jsonl", mtime: now - 1_000 },
-    { file: "/p/sess/subagents/agent-old.jsonl", mtime: now - 200_000 },
+test("subagent liveness needs growth, not a fresh mtime", async () => {
+  const { countLiveSubagents, resetGrowthTracking } = await import(
+    "../dist/adapters/claude.js"
+  );
+  resetGrowthTracking();
+  const t0 = 1_000_000;
+  const snap = (a, b) => [
+    { file: "/p/sess.jsonl", mtime: t0, size: 100 },
+    { file: "/p/sess/subagents/agent-a.jsonl", mtime: t0, size: a },
+    { file: "/p/sess/subagents/agent-b.jsonl", mtime: t0, size: b },
   ];
-  assert.equal(countLiveSubagents(files, now), 2);
-  assert.equal(countLiveSubagents([files[0]], now), 0);
-  assert.equal(countLiveSubagents([], now), 0);
+  // first sighting proves nothing
+  assert.equal(countLiveSubagents(snap(10, 10), t0), 0);
+  // only agent-a grew; agent-b was merely re-touched (same size)
+  assert.equal(countLiveSubagents(snap(20, 10), t0 + 1000), 1);
+  // nothing grew → the session is finished even though mtime is "now"
+  assert.equal(countLiveSubagents(snap(20, 10), t0 + 2000), 0);
+  resetGrowthTracking();
 });
