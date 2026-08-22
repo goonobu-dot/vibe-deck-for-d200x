@@ -92,3 +92,30 @@ test("lanes stick to a session even when another one outranks it", async () => {
   assert.equal(third[0].id, "D");
   resetStickySlots();
 });
+
+test("a busy session always gets a visible lane", async () => {
+  const { assignSlots, resetStickySlots } = await import("../dist/lib/slots.js");
+  resetStickySlots();
+  const mk = (id, state, t) => ({ id, title: id, state, updatedAt: t, focusAction: undefined });
+  // Five idle sessions claim lanes 1-5 first.
+  const idle = ["A", "B", "C", "D", "E"].map((id, i) => mk(id, "idle", 100 + i));
+  assignSlots(idle, 8, { tool: "y" });
+  // Two new sessions start working — both must land inside lanes 1-5.
+  const next = assignSlots(
+    [...idle, mk("F", "thinking", 900), mk("G", "needs_input", 950)],
+    8,
+    { tool: "y" },
+  );
+  const visible = next.slice(0, 5).map((a) => a.id);
+  assert.ok(visible.includes("F"), `F hidden: ${visible}`);
+  assert.ok(visible.includes("G"), `G hidden: ${visible}`);
+  // Busy lanes are never evicted by another busy session.
+  const keep = assignSlots(
+    [mk("F", "thinking", 1000), mk("G", "thinking", 1000), ...idle],
+    8,
+    { tool: "y" },
+  );
+  const stillVisible = keep.slice(0, 5).map((a) => a.id);
+  assert.ok(stillVisible.includes("F") && stillVisible.includes("G"));
+  resetStickySlots();
+});

@@ -6,6 +6,17 @@ import {
 } from "../types.js";
 
 export const MAX_SLOTS = 8;
+/** The deck only paints five lanes — anything past this is invisible. */
+export const VISIBLE_SLOTS = 5;
+
+/** Lower = more deserving of a visible lane. */
+function laneRank(a: RawAgent): number {
+  return STATE_PRIORITY[a.state];
+}
+
+function isBusy(a: RawAgent): boolean {
+  return a.state === "thinking" || a.state === "needs_input" || a.state === "error";
+}
 
 /**
  * Sticky lane assignment: a session keeps the same physical key for as long
@@ -67,6 +78,46 @@ export function assignSlots(
       lanes.set(agent.id, s);
       break;
     }
+  }
+
+  // Stickiness must never hide live work: a busy session parked outside the
+  // visible lanes trades places with the least important visible one.
+  const visible = Math.min(VISIBLE_SLOTS, maxSlots);
+  for (const agent of picked) {
+    if (!isBusy(agent)) continue;
+    const slot = lanes.get(agent.id);
+    if (slot && slot <= visible) continue;
+    let victimSlot = 0;
+    let victim: RawAgent | undefined;
+    for (let s = 1; s <= visible; s += 1) {
+      const held = bySlot.get(s);
+      if (!held) {
+        victimSlot = s;
+        victim = undefined;
+        break;
+      }
+      if (isBusy(held)) continue;
+      if (
+        !victim ||
+        laneRank(held) > laneRank(victim) ||
+        (laneRank(held) === laneRank(victim) && held.updatedAt < victim.updatedAt)
+      ) {
+        victim = held;
+        victimSlot = s;
+      }
+    }
+    if (!victimSlot) continue; // every visible lane is busy — leave as is
+    if (victim) {
+      if (slot) {
+        bySlot.set(slot, victim);
+        lanes.set(victim.id, slot);
+      } else {
+        bySlot.delete(victimSlot);
+        lanes.delete(victim.id);
+      }
+    }
+    bySlot.set(victimSlot, agent);
+    lanes.set(agent.id, victimSlot);
   }
 
   const seed = picked[0];
